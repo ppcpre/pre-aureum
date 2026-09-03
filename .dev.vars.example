@@ -1,0 +1,5 @@
+# Copy this file to .dev.vars and fill in your own key.
+# .dev.vars is for LOCAL development only — never commit it.
+# For deployed environments use: wrangler secret put TWELVEDATA_API_KEY
+
+TWELVEDATA_API_KEY=your-twelvedata-api-key

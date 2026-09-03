@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aureum — ทอง Dashboard</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">AUREUM</div>
+    <div class="tf-tabs" id="tf-tabs">
+      <button data-tf="M15">M15</button>
+      <button data-tf="H1">H1</button>
+      <button data-tf="H4" class="active">H4</button>
+      <button data-tf="D1">D1</button>
+      <button data-tf="W1">W1</button>
+    </div>
+  </div>
+
+  <main>
+    <section class="price-card card">
+      <div class="label">XAU/USD</div>
+      <div class="price mono" id="price">–</div>
+      <div class="muted" id="updated">กำลังโหลด…</div>
+    </section>
+
+    <section class="sr-card card">
+      <div class="label">แนวสำคัญใกล้ราคา</div>
+      <div id="sr-list">กำลังโหลด…</div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
