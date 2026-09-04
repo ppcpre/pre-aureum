@@ -1,4 +1,4 @@
-const tabsEl = document.getElementById("symbol-tabs");
+const selectEl = document.getElementById("symbol-select");
 const tfTabsEl = document.getElementById("tf-tabs");
 const symbolLabelEl = document.getElementById("symbol-label");
 const priceEl = document.getElementById("price");
@@ -116,22 +116,19 @@ async function init() {
     if (!res.ok) throw new Error("failed to load watchlist");
     data = await res.json();
   } catch {
-    tabsEl.innerHTML = pendingBadge("โหลดรายชื่อหุ้นไม่สำเร็จ");
+    selectEl.innerHTML = `<option>โหลดรายชื่อหุ้นไม่สำเร็จ</option>`;
     return;
   }
 
-  tabsEl.innerHTML = data.items
-    .map((s, i) => `<button data-symbol="${s.symbol}" class="${i === 0 ? "active" : ""}">${s.symbol}</button>`)
-    .join("");
+  // Native <select> — 50 symbols (SET50) is too many for a tab row, and a
+  // native select gives free type-to-search without building a custom
+  // dropdown component.
+  selectEl.innerHTML = data.items.map((s) => `<option value="${s.symbol}">${s.symbol} · ${s.name}</option>`).join("");
 
-  tabsEl.querySelectorAll("button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      tabsEl.querySelectorAll("button").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      const item = data.items.find((s) => s.symbol === btn.dataset.symbol);
-      symbolLabelEl.textContent = `${item.symbol} · ${item.name}`;
-      loadSymbol(item.symbol);
-    });
+  selectEl.addEventListener("change", () => {
+    const item = data.items.find((s) => s.symbol === selectEl.value);
+    symbolLabelEl.textContent = `${item.symbol} · ${item.name}`;
+    loadSymbol(item.symbol);
   });
 
   if (data.items.length > 0) {

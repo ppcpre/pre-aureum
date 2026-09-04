@@ -1,6 +1,5 @@
 import type { Env } from "../types";
-import { fetchLatestPrice, fetchTimeSeries } from "./yahoo-finance";
-import { getCandles, getPreviousDayCandle, upsertCandles } from "./candles-db";
+import { getCandles, getPreviousDayCandle } from "./candles-db";
 import { buildSRLevels, pickNearestLevels } from "./sr-engine";
 import { STOCK_WATCHLIST } from "./stock-symbols";
 
@@ -31,18 +30,32 @@ function classifySignal(
   return "normal";
 }
 
+/**
+ * Builds the screener from D1 ONLY — no live Yahoo Finance fetches, no KV
+ * price-cache dependency either (that cache's 4-min TTL is tuned for a
+ * single-symbol "live price right now" view, not for keeping 50 rows
+ * populated). "Current price" here is the latest cached D1 daily close —
+ * appropriate anyway for daily-granularity screening (24h change, near-
+ * support) and it means a symbol shows up as soon as cron has ever reached
+ * it, not just within the last few minutes.
+ *
+ * Why no live fetches at all: this loops the full SET50 watchlist (50
+ * symbols). Cloudflare Workers caps a single invocation at 50 subrequests
+ * on the Free plan — a live fetch per symbol would blow past that in one
+ * request. The hourly cron (pollStockPrices in index.ts, its own separate
+ * invocation with its own budget, processed in batches) is what actually
+ * populates D1 — a symbol just doesn't appear here until cron has reached
+ * it for the first time.
+ */
 export async function buildScreener(env: Env): Promise<ScreenerRow[]> {
   const rows: ScreenerRow[] = [];
 
   for (const { symbol, name } of STOCK_WATCHLIST) {
     try {
-      let candles = await getCandles(env.DB, symbol, "D1", 30);
-      if (candles.length === 0) {
-        candles = await fetchTimeSeries(symbol, "D1");
-        await upsertCandles(env.DB, symbol, "D1", candles);
-      }
+      const candles = await getCandles(env.DB, symbol, "D1", 30);
+      if (candles.length === 0) continue; // cron hasn't reached this symbol yet
 
-      const currentPrice = await fetchLatestPrice(symbol);
+      const currentPrice = candles[candles.length - 1].close;
       const previousDayCandle = await getPreviousDayCandle(env, symbol);
       const changePct = previousDayCandle
         ? ((currentPrice - previousDayCandle.close) / previousDayCandle.close) * 100

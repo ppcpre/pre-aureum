@@ -8,12 +8,11 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
   main { max-width: none; grid-template-columns: 1fr 320px; align-items: start; }
-  .symbol-tabs button {
-    background: none; border: none; color: oklch(0.60 0.01 250);
+  #symbol-select {
+    background: oklch(0.14 0.006 250); border: 1px solid oklch(0.29 0.008 250); color: oklch(0.92 0.004 250);
     font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;
-    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    padding: 7px 10px; border-radius: 6px; cursor: pointer; min-width: 220px;
   }
-  .symbol-tabs button.active { background: oklch(0.29 0.008 250); color: oklch(0.92 0.004 250); }
   .caveat {
     grid-column: 1 / -1;
     display: flex; align-items: center; gap: 8px; padding: 8px 14px;
@@ -30,7 +29,7 @@
     <div class="main-col">
       <div class="topbar">
         <span style="font-size:14.5px; font-weight:700;">หุ้นไทย · Dashboard</span>
-        <div class="symbol-tabs" id="symbol-tabs"></div>
+        <select id="symbol-select"></select>
         <div class="tf-tabs" id="tf-tabs">
           <button data-tf="M15">M15</button>
           <button data-tf="H1">H1</button>

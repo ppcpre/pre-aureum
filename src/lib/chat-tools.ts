@@ -1,6 +1,7 @@
 import type { Env, Timeframe } from "../types";
 import * as twelvedata from "./twelvedata";
 import * as yahoo from "./yahoo-finance";
+import { getStockPrice } from "./stock-price";
 import { getCandles, getPreviousDayCandle, upsertCandles } from "./candles-db";
 import { buildSRLevels, pickNearestLevels } from "./sr-engine";
 import { isKnownSymbol, STOCK_WATCHLIST } from "./stock-symbols";
@@ -111,7 +112,7 @@ export async function executeChatTool(env: Env, name: string, args: Record<strin
       case "get_stock_price": {
         const symbol = String(args.symbol ?? "");
         if (!isKnownSymbol(symbol)) return JSON.stringify({ error: `unknown symbol ${symbol}` });
-        const price = await yahoo.fetchLatestPrice(symbol);
+        const { price } = await getStockPrice(env, symbol);
         return JSON.stringify({ symbol, price });
       }
 
@@ -125,7 +126,7 @@ export async function executeChatTool(env: Env, name: string, args: Record<strin
           await upsertCandles(env.DB, symbol, timeframe, candles);
         }
         const previousDayCandle = await getPreviousDayCandle(env, symbol);
-        const currentPrice = await yahoo.fetchLatestPrice(symbol);
+        const { price: currentPrice } = await getStockPrice(env, symbol);
         const levels = pickNearestLevels(buildSRLevels(candles, previousDayCandle, currentPrice), currentPrice);
         return JSON.stringify({ symbol, timeframe, currentPrice, levels });
       }

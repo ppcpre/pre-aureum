@@ -30,10 +30,10 @@
 	],
 	// News sentiment/impact scoring — see src/lib/sentiment.ts
 	"ai": { "binding": "AI" },
-	// Day Trade Mode: poll gold price every 5 minutes.
 	"triggers": {
 		"crons": [
-			"*/5 * * * *"
+			"*/5 * * * *", // Day Trade Mode: gold price + news every 5 minutes.
+			"0 * * * *"    // Thai stocks (SET50, 50 symbols): hourly — see index.ts pollStockPrices()
 		]
 	},
 	"observability": {
