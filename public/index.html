@@ -6,6 +6,11 @@
 <title>Aureum — ทอง Dashboard</title>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  main { max-width: none; grid-template-columns: 1fr 320px; align-items: start; }
+  .chart-card { display: flex; flex-direction: column; min-height: 460px; }
+  #chart-container { flex: 1; min-height: 380px; }
+</style>
 </head>
 <body data-active="gold-dashboard">
   <div class="app-shell">
@@ -24,10 +29,14 @@
       </div>
 
       <main>
-        <section class="price-card card">
-          <div class="label">XAU/USD</div>
-          <div class="price mono" id="price">–</div>
-          <div id="updated">กำลังโหลด…</div>
+        <section class="chart-card card">
+          <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:10px;">
+            <span class="label" style="margin:0;">XAU/USD</span>
+            <span class="price mono" id="price" style="font-size:22px;">–</span>
+            <span class="mono" id="change" style="font-size:13px; font-weight:600;"></span>
+          </div>
+          <div id="updated" style="margin-bottom:10px;">กำลังโหลด…</div>
+          <div id="chart-container"></div>
         </section>
 
         <section class="sr-card card">
@@ -39,6 +48,7 @@
   </div>
 
   <script src="/sidebar.js"></script>
+  <script src="/candlestick-chart.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>
