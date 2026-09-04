@@ -10,7 +10,7 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
 - ✅ M2 — S/R engine: Pivot Points, Swing High/Low, EMA50/EMA200 (dynamic S/R), Volume Profile (POC/VAH/VAL) — ทั้งหมดคำนวณจริง ตรวจ sanity ด้วยข้อมูลสังเคราะห์แล้ว (ดูหมายเหตุด้านล่าง)
 - ✅ M3 — Frontend เต็มไซต์แล้ว: sidebar เมนูแยกทอง/หุ้นไทย/Admin ใช้ได้ทุกหน้า
   - ทอง: Dashboard (จริง), ข่าว (จริง — ใช้ M4), คำนวณความเสี่ยง (จริง, client-side ล้วน)
-  - หุ้นไทย: Dashboard, Screener — หน้ามีจริงแต่โชว์ label "รอ data source (M6)" แทนหน้า error
+  - หุ้นไทย: Dashboard, Screener (จริง — ใช้ M6, มี caveat banner เตือนเรื่อง data source ตลอด)
   - จุดที่ต้องรอ TWELVEDATA_API_KEY (เช่น ราคาทอง/S/R) โชว์ badge "รอเชื่อมต่อ" สีเหลือง ไม่ใช่ error แดง — เข้าหน้าอื่นได้ปกติ
 - ✅ M4 — News pipeline (RSS → D1) — ทดสอบแล้วใช้งานได้จริง ไม่ต้องมี API key
   - แหล่งข่าวที่ยืนยันแล้วว่าใช้ได้ (เช็ค 2026-09-04): **FXStreet** (`fxstreet`)
@@ -18,8 +18,15 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - Sentiment/Impact analysis (Workers AI) — ยังไม่ทำ ฟิลด์ยังเป็น `null`
 - ✅ M5 — Admin auth (single-password session, cookie + KV, `requireAdmin` middleware) + หน้า Zone Finder (ทอง, logic จริง) / Watchlist / Auto Trade Status (placeholder ที่ซื่อสัตย์ อยู่หลัง auth เดียวกัน) — มีหน้า login จริงที่ `/admin/login`
 
+- ✅ M6 — หุ้นไทย Dashboard/Screener ใช้งานได้จริง ผ่าน **Yahoo Finance (unofficial, `.BK`)** — Research แล้วว่านี่คือสิ่งที่นักพัฒนาไทยใช้กันจริงสำหรับข้อมูลฟรี (ยืนยัน 2026-09-04) แต่:
+  - ⚠️ **มีรายงานราคา `.BK` ผิดปกติมาตั้งแต่ต้นปี 2024** (ราคาไม่ตรง/volume หาย บางวัน) — ต้องเช็คความแม่นยำเทียบ SETTRADE จริงก่อนเชื่อถือ 100%
+  - ⚠️ ไม่ใช่ API ทางการ ไม่มี SLA ไม่มีสิทธิ์ redistribute — **ใช้ได้เฉพาะช่วงทดสอบความแม่นยำเท่านั้น** ก่อน public launch จริงต้องเปลี่ยนเป็น Twelve Data Pro (ต้อง Pro plan ถึงจะมี SET) หรือ EODHD commercial plan
+  - Watchlist ตอนนี้เป็นชุดเล็กที่คัดไว้ก่อน (PTT, AOT, KBANK, CPALL) — ยังไม่รองรับค้นหาทุกหุ้นใน SET
+  - Screener มี filter จริง: พุ่งขึ้น/ลงแรง 24ชม., ใกล้แนวรับ, ทะลุแนวต้าน (breakout = ทำ high ใหม่ในรอบ 10 วัน)
+  - แก้บั๊ก: แนวรับ-ต้านเดิม cluster ถี่เกินไปสำหรับหุ้นราคาต่ำ (tick size ใหญ่กว่า tolerance เดิม) ปรับ `tolerancePct` 0.15% → 0.3% และเพิ่ม `pickNearestLevels()` ตัดเหลือแนวใกล้ราคาที่สุดฝั่งละ 4 ระดับ (ใช้ทั้งทองและหุ้นไทย)
+
 ## ยังไม่ทำ (ทำต่อได้ตามลำดับ)
-- ⬜ M6 — Data source หุ้นไทยฝั่ง public (ยังไม่ฟันธง — ดู README เดิมของแชท)
+- ⬜ ขยาย watchlist หุ้นไทย + ค้นหาได้ทุก symbol ใน SET (ตอนนี้จำกัด 4 ตัว)
 - ⬜ Sentiment/Impact scoring ข่าว ผ่าน Workers AI
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
 - ⬜ Scalp Mode (poll ทุก 10-15 วิ) — ยังไม่เปิดใช้ จนกว่าจะเช็ค quota ฟรีของ Twelve Data ว่าพอจริงไหม
@@ -80,20 +87,33 @@ src/
   index.ts          Hono app + scheduled handler (cron: poll ราคา + ข่าว ทุก 5 นาที)
   types.ts          Env bindings + shared types
   routes/
-    price.ts        GET /api/price/gold, /api/price/gold/history
+    price.ts         GET /api/price/gold, /api/price/gold/history
     sr.ts            GET /api/sr/gold
     news.ts          GET /api/news
-    admin.ts         POST /api/admin/login, /logout, GET /me, /ping (protected)
+    admin.ts         POST /api/admin/login, /logout, GET /me, /ping, /zone-finder/gold, /watchlist, /auto-trade/status (all protected)
+    stock.ts         GET /api/price/stock(/:symbol), /api/sr/stock/:symbol — หุ้นไทย
+    screener.ts      GET /api/screener/stock
   lib/
-    twelvedata.ts    Twelve Data API client
-    sr-engine.ts     Pivot Points + Swing High/Low + strength scoring
-    candles-db.ts    D1 read/write helper
+    twelvedata.ts    Twelve Data API client (ทอง)
+    yahoo-finance.ts Yahoo Finance unofficial client (หุ้นไทย, .BK) — ดู caveat ในไฟล์
+    stock-symbols.ts Watchlist หุ้นไทยที่คัดไว้ (ตอนนี้ 4 ตัว)
+    screener.ts      Logic กรอง gainer/loser/near_support/breakout
+    zone-finder.ts   Confluence checklist สำหรับ Admin Zone Finder (ทอง)
+    sr-engine.ts     Pivot Points, Swing High/Low, EMA50/200, Volume Profile, pickNearestLevels
+    candles-db.ts    D1 read/write helper (ใช้ร่วมกันทองและหุ้นไทย)
     kv-cache.ts      KV read/write helper
     rss.ts           RSS feed fetch + parse (fast-xml-parser)
     news-sources.ts  รายชื่อ RSS feed ที่เช็คแล้วว่าใช้ได้
     news-db.ts       D1 upsert สำหรับข่าว (dedupe ด้วย url)
     news-poll.ts     ฟังก์ชันดึงข่าวทุก source แล้วบันทึก
     auth.ts          Admin session (cookie + KV) + requireAdmin middleware
-public/              Static frontend (ทอง Dashboard ขั้นต่ำ)
+public/
+  sidebar.js         Sidebar เมนู (mount ทุกหน้าผ่าน #sidebar-mount)
+  index.html/js      ทอง Dashboard
+  news.html/js       ทอง ข่าว
+  risk-calculator.*  ทอง คำนวณความเสี่ยง (client-side ล้วน)
+  stock-dashboard.*  หุ้นไทย Dashboard
+  screener.html/js   หุ้นไทย Screener
+  admin/             login, zone-finder, watchlist, auto-trade (+ common.js: auth guard/logout)
 schema.sql           D1 schema
 ```

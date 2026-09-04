@@ -6,6 +6,30 @@
 <title>Aureum — Screener หุ้นไทย</title>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  main { max-width: 900px; }
+  .caveat {
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin-bottom: 4px;
+    background: oklch(0.78 0.15 70 / 0.10); border: 1px solid oklch(0.78 0.15 70 / 0.25);
+    border-radius: 8px; font-size: 11.5px; color: oklch(0.78 0.15 70);
+  }
+  .filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    display: flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 8px;
+    font-size: 12.5px; font-weight: 700; border: 1px solid oklch(0.29 0.008 250); color: oklch(0.65 0.01 250);
+    cursor: pointer; background: none; font-family: inherit;
+  }
+  .chip.active { background: oklch(0.75 0.14 85); color: oklch(0.16 0.02 85); border-color: oklch(0.75 0.14 85); }
+  table { border-collapse: collapse; width: 100%; }
+  th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: oklch(0.55 0.01 250); padding: 0 10px 10px; }
+  td { padding: 11px 10px; font-size: 13px; border-top: 1px solid oklch(0.26 0.008 250); }
+  .signal-tag { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 5px; }
+  .signal-gainer { color: oklch(0.72 0.15 150); background: oklch(0.72 0.15 150 / 0.14); }
+  .signal-loser { color: oklch(0.65 0.18 25); background: oklch(0.65 0.18 25 / 0.14); }
+  .signal-near_support { color: oklch(0.72 0.15 150); background: oklch(0.72 0.15 150 / 0.14); }
+  .signal-breakout_resistance { color: oklch(0.75 0.14 85); background: oklch(0.75 0.14 85 / 0.14); }
+  .signal-normal { color: oklch(0.60 0.01 250); background: oklch(0.29 0.008 250); }
+</style>
 </head>
 <body data-active="stock-screener">
   <div class="app-shell">
@@ -15,15 +39,32 @@
         <span style="font-size:14.5px; font-weight:700;">Screener — หุ้นไทย</span>
       </div>
       <main>
+        <div class="caveat">
+          <span class="dot" style="width:6px;height:6px;border-radius:50%;background:oklch(0.78 0.15 70);"></span>
+          ข้อมูลทดสอบจาก Yahoo Finance (unofficial) + รายชื่อหุ้นตอนนี้เป็น watchlist ชุดเล็กที่คัดไว้ก่อน ยังไม่ใช่ทั้งตลาด
+        </div>
+
+        <div class="filter-chips" id="filters">
+          <button class="chip active" data-filter="all">ทั้งหมด</button>
+          <button class="chip" data-filter="gainer">พุ่งขึ้นแรง 24 ชม.</button>
+          <button class="chip" data-filter="loser">ร่วงแรง 24 ชม.</button>
+          <button class="chip" data-filter="near_support">ใกล้แนวรับ</button>
+          <button class="chip" data-filter="breakout_resistance">ทะลุแนวต้าน</button>
+        </div>
+
         <section class="card">
-          <span class="pending-badge"><span class="dot"></span>ยังไม่เปิดใช้งาน — รอ data source หุ้นไทยฝั่ง public (M6) เหมือนหน้า Dashboard</span>
-          <p class="muted" style="margin-top:14px; line-height:1.7;">
-            หน้านี้จะกรองหุ้นตามที่คนมักสนใจ: พุ่งขึ้น/ลงแรงใน 24 ชม., ใกล้แนวรับ, ทะลุแนวต้าน
-          </p>
+          <table>
+            <thead>
+              <tr><th>Symbol</th><th>ราคา</th><th>% 24 ชม.</th><th>แนวรับ</th><th>แนวต้าน</th><th>สัญญาณ</th></tr>
+            </thead>
+            <tbody id="rows"><tr><td colspan="6">กำลังโหลด…</td></tr></tbody>
+          </table>
         </section>
       </main>
     </div>
   </div>
+
   <script src="/sidebar.js"></script>
+  <script src="/screener.js"></script>
 </body>
 </html>

@@ -134,7 +134,7 @@ export function buildSRLevels(
   candles: Candle[],
   previousDayCandle: Candle | undefined,
   currentPrice: number,
-  tolerancePct = 0.15
+  tolerancePct = 0.3
 ): SRLevel[] {
   const raw: { price: number; method: string }[] = [];
 
@@ -197,4 +197,20 @@ export function buildSRLevels(
 
 function avg(nums: number[]): number {
   return nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+/**
+ * `buildSRLevels` can return many clustered levels on volatile/long history
+ * (common on lower-priced, choppier instruments — Thai stocks vs. gold).
+ * This trims to the `perSide` nearest support and resistance levels to
+ * current price, sorted strongest-and-closest first — matching what the
+ * "แนวสำคัญใกล้ราคา" panel is meant to show.
+ */
+export function pickNearestLevels(levels: SRLevel[], currentPrice: number, perSide = 4): SRLevel[] {
+  const byDistance = (a: SRLevel, b: SRLevel) =>
+    Math.abs(a.price - currentPrice) - Math.abs(b.price - currentPrice);
+
+  const supports = levels.filter((l) => l.type === "support").sort(byDistance).slice(0, perSide);
+  const resistances = levels.filter((l) => l.type === "resistance").sort(byDistance).slice(0, perSide);
+  return [...resistances, ...supports];
 }

@@ -6,6 +6,19 @@
 <title>Aureum — หุ้นไทย Dashboard</title>
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  .symbol-tabs button {
+    background: none; border: none; color: oklch(0.60 0.01 250);
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;
+    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  }
+  .symbol-tabs button.active { background: oklch(0.29 0.008 250); color: oklch(0.92 0.004 250); }
+  .caveat {
+    display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin-bottom: 16px;
+    background: oklch(0.78 0.15 70 / 0.10); border: 1px solid oklch(0.78 0.15 70 / 0.25);
+    border-radius: 8px; font-size: 11.5px; color: oklch(0.78 0.15 70);
+  }
+</style>
 </head>
 <body data-active="stock-dashboard">
   <div class="app-shell">
@@ -13,19 +26,29 @@
     <div class="main-col">
       <div class="topbar">
         <span style="font-size:14.5px; font-weight:700;">หุ้นไทย · Dashboard</span>
+        <div class="symbol-tabs" id="symbol-tabs"></div>
       </div>
       <main>
-        <section class="card">
-          <span class="pending-badge"><span class="dot"></span>ยังไม่เปิดใช้งาน — รอตัดสินใจ data source หุ้นไทยฝั่ง public (M6)</span>
-          <p class="muted" style="margin-top:14px; line-height:1.7;">
-            หน้านี้จะแสดงกราฟ + แนวรับ-แนวต้านของหุ้นไทยรายตัว (ค้นหาได้ หลาย timeframe)
-            เหมือนหน้าทอง แต่ต้องเลือก data source ที่อนุญาตแสดงผลต่อสาธารณะก่อน
-            (SETTRADE Open API ที่มีอยู่ใช้ได้เฉพาะฝั่ง Admin เท่านั้น)
-          </p>
+        <div class="caveat">
+          <span class="dot" style="width:6px;height:6px;border-radius:50%;background:oklch(0.78 0.15 70);"></span>
+          ข้อมูลทดสอบจาก Yahoo Finance (unofficial) — เคยมีรายงานราคา .BK ผิดปกติ ควรเช็คความแม่นยำก่อนใช้งานจริง ไม่ใช่แหล่งข้อมูลสำหรับ production
+        </div>
+
+        <section class="price-card card">
+          <div class="label" id="symbol-label">–</div>
+          <div class="price mono" id="price">–</div>
+          <div id="updated">กำลังโหลด…</div>
+        </section>
+
+        <section class="sr-card card">
+          <div class="label">แนวสำคัญใกล้ราคา</div>
+          <div id="sr-list">กำลังโหลด…</div>
         </section>
       </main>
     </div>
   </div>
+
   <script src="/sidebar.js"></script>
+  <script src="/stock-dashboard.js"></script>
 </body>
 </html>

@@ -15,11 +15,15 @@ priceRoute.get("/gold", async (c) => {
   const cached = await getJSON<{ price: number; ts: number }>(c.env.CACHE, LATEST_PRICE_KEY);
   if (cached) return c.json(cached);
 
-  // Cache miss (e.g. first request before the cron has run yet) — fetch live.
-  const price = await fetchLatestPrice(c.env, GOLD_SYMBOL);
-  const payload = { price, ts: Math.floor(Date.now() / 1000) };
-  await putJSON(c.env.CACHE, LATEST_PRICE_KEY, payload, LATEST_PRICE_TTL_SECONDS);
-  return c.json(payload);
+  try {
+    // Cache miss (e.g. first request before the cron has run yet) — fetch live.
+    const price = await fetchLatestPrice(c.env, GOLD_SYMBOL);
+    const payload = { price, ts: Math.floor(Date.now() / 1000) };
+    await putJSON(c.env.CACHE, LATEST_PRICE_KEY, payload, LATEST_PRICE_TTL_SECONDS);
+    return c.json(payload);
+  } catch (err) {
+    return c.json({ error: "upstream_fetch_failed", message: (err as Error).message }, 502);
+  }
 });
 
 // GET /api/price/gold/history?tf=H4 — OHLC candles for one timeframe.
@@ -28,9 +32,13 @@ priceRoute.get("/gold/history", async (c) => {
 
   let candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 100);
   if (candles.length === 0) {
-    // Nothing stored yet for this timeframe — backfill once from Twelve Data.
-    candles = await fetchTimeSeries(c.env, GOLD_SYMBOL, tf, 100);
-    await upsertCandles(c.env.DB, GOLD_SYMBOL, tf, candles);
+    try {
+      // Nothing stored yet for this timeframe — backfill once from Twelve Data.
+      candles = await fetchTimeSeries(c.env, GOLD_SYMBOL, tf, 100);
+      await upsertCandles(c.env.DB, GOLD_SYMBOL, tf, candles);
+    } catch (err) {
+      return c.json({ error: "upstream_fetch_failed", message: (err as Error).message }, 502);
+    }
   }
 
   return c.json({ symbol: GOLD_SYMBOL, timeframe: tf, candles });
