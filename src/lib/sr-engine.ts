@@ -50,10 +50,85 @@ export function findSwingPoints(candles: Candle[], lookback = 2): SwingPoint[] {
   return points;
 }
 
+/** Exponential moving average of closes; undefined if there aren't enough candles. */
+export function calculateEMA(candles: Candle[], period: number): number | undefined {
+  if (candles.length < period) return undefined;
+
+  const k = 2 / (period + 1);
+  let ema = avg(candles.slice(0, period).map((c) => c.close)); // seed with SMA
+
+  for (let i = period; i < candles.length; i++) {
+    ema = candles[i].close * k + ema * (1 - k);
+  }
+  return ema;
+}
+
+interface VolumeProfile {
+  poc: number; // Point of Control — price bin with the most volume
+  vah: number; // Value Area High
+  val: number; // Value Area Low
+}
+
 /**
- * Combine pivot points + swing points into a deduplicated, scored list of S/R levels.
- * `tolerancePct` controls how close two raw levels must be (as a % of price) to be
- * treated as the same confluence zone.
+ * Classic volume profile: bucket the traded range into `bins`, distribute each
+ * candle's volume across the bins its [low, high] range overlaps, find the
+ * Point of Control, then expand outward from it until ~70% of total volume
+ * (the Value Area) is covered. Returns undefined if candles carry no volume —
+ * spot/CFD gold feeds commonly don't report real traded volume.
+ */
+export function buildVolumeProfile(candles: Candle[], bins = 24): VolumeProfile | undefined {
+  const withVolume = candles.filter((c) => (c.volume ?? 0) > 0);
+  if (withVolume.length === 0) return undefined;
+
+  const rangeLow = Math.min(...withVolume.map((c) => c.low));
+  const rangeHigh = Math.max(...withVolume.map((c) => c.high));
+  if (rangeHigh <= rangeLow) return undefined;
+
+  const binSize = (rangeHigh - rangeLow) / bins;
+  const binVolume = new Array<number>(bins).fill(0);
+
+  for (const c of withVolume) {
+    const firstBin = Math.max(0, Math.floor((c.low - rangeLow) / binSize));
+    const lastBin = Math.min(bins - 1, Math.floor((c.high - rangeLow) / binSize));
+    const spanBins = lastBin - firstBin + 1;
+    const volumePerBin = (c.volume ?? 0) / spanBins;
+    for (let b = firstBin; b <= lastBin; b++) binVolume[b] += volumePerBin;
+  }
+
+  const totalVolume = binVolume.reduce((a, b) => a + b, 0);
+  let pocBin = 0;
+  for (let b = 1; b < bins; b++) if (binVolume[b] > binVolume[pocBin]) pocBin = b;
+
+  // Expand outward from the POC bin, always taking whichever neighbor has more
+  // volume, until the covered bins hold ~70% of total volume.
+  let lo = pocBin;
+  let hi = pocBin;
+  let covered = binVolume[pocBin];
+  while (covered / totalVolume < 0.7 && (lo > 0 || hi < bins - 1)) {
+    const leftVol = lo > 0 ? binVolume[lo - 1] : -1;
+    const rightVol = hi < bins - 1 ? binVolume[hi + 1] : -1;
+    if (rightVol >= leftVol) {
+      hi++;
+      covered += binVolume[hi];
+    } else {
+      lo--;
+      covered += binVolume[lo];
+    }
+  }
+
+  const binPrice = (b: number) => rangeLow + b * binSize;
+  return {
+    poc: binPrice(pocBin) + binSize / 2,
+    vah: binPrice(hi + 1),
+    val: binPrice(lo),
+  };
+}
+
+/**
+ * Combine pivot points + swing points + dynamic MAs + volume profile into a
+ * deduplicated, scored list of S/R levels. `tolerancePct` controls how close
+ * two raw levels must be (as a % of price) to be treated as the same
+ * confluence zone.
  */
 export function buildSRLevels(
   candles: Candle[],
@@ -75,6 +150,21 @@ export function buildSRLevels(
 
   for (const sp of findSwingPoints(candles)) {
     raw.push({ price: sp.price, method: "swing" });
+  }
+
+  const ema50 = calculateEMA(candles, 50);
+  if (ema50) raw.push({ price: ema50, method: "ema50" });
+
+  const ema200 = calculateEMA(candles, 200);
+  if (ema200) raw.push({ price: ema200, method: "ema200" });
+
+  const volumeProfile = buildVolumeProfile(candles);
+  if (volumeProfile) {
+    raw.push(
+      { price: volumeProfile.poc, method: "volume_poc" },
+      { price: volumeProfile.vah, method: "volume_vah" },
+      { price: volumeProfile.val, method: "volume_val" }
+    );
   }
 
   // Cluster raw levels that sit within tolerancePct of each other.

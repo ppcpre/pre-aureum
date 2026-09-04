@@ -7,7 +7,7 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
 
 - ✅ M0 — โครงโปรเจกต์ (Hono, TypeScript, D1/KV/Cron config)
 - ✅ M1 — Gold price pipeline (Twelve Data → KV cache + D1 history) — **รอ TWELVEDATA_API_KEY** (ตั้งใจข้ามไว้ก่อน)
-- ✅ M2 — S/R engine (Pivot Points + Swing High/Low, จริง ใช้งานได้)
+- ✅ M2 — S/R engine: Pivot Points, Swing High/Low, EMA50/EMA200 (dynamic S/R), Volume Profile (POC/VAH/VAL) — ทั้งหมดคำนวณจริง ตรวจ sanity ด้วยข้อมูลสังเคราะห์แล้ว (ดูหมายเหตุด้านล่าง)
 - ✅ M3 — Frontend ทอง Dashboard ขั้นต่ำ (ต่อ API จริงแล้ว)
 - ✅ M4 — News pipeline (RSS → D1) — ทดสอบแล้วใช้งานได้จริง ไม่ต้องมี API key
   - แหล่งข่าวที่ยืนยันแล้วว่าใช้ได้ (เช็ค 2026-09-04): **FXStreet** (`fxstreet`)
@@ -19,8 +19,8 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
 
 - ⬜ M5 (ต่อ) — หน้า Zone Finder / Watchlist / Auto Trade (ต่อบน `requireAdmin` middleware ที่มีแล้ว)
 - ⬜ M6 — Data source หุ้นไทยฝั่ง public (ยังไม่ฟันธง — ดู README เดิมของแชท)
-- ⬜ Volume Profile + Moving Average dynamic S/R (ตอนนี้มีแค่ Pivot + Swing)
 - ⬜ Sentiment/Impact scoring ข่าว ผ่าน Workers AI
+- ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
 - ⬜ Scalp Mode (poll ทุก 10-15 วิ) — ยังไม่เปิดใช้ จนกว่าจะเช็ค quota ฟรีของ Twelve Data ว่าพอจริงไหม
 
 ## Admin auth (ใหม่)
