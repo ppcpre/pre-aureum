@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aureum — หุ้นไทย Dashboard</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+</head>
+<body data-active="stock-dashboard">
+  <div class="app-shell">
+    <div id="sidebar-mount"></div>
+    <div class="main-col">
+      <div class="topbar">
+        <span style="font-size:14.5px; font-weight:700;">หุ้นไทย · Dashboard</span>
+      </div>
+      <main>
+        <section class="card">
+          <span class="pending-badge"><span class="dot"></span>ยังไม่เปิดใช้งาน — รอตัดสินใจ data source หุ้นไทยฝั่ง public (M6)</span>
+          <p class="muted" style="margin-top:14px; line-height:1.7;">
+            หน้านี้จะแสดงกราฟ + แนวรับ-แนวต้านของหุ้นไทยรายตัว (ค้นหาได้ หลาย timeframe)
+            เหมือนหน้าทอง แต่ต้องเลือก data source ที่อนุญาตแสดงผลต่อสาธารณะก่อน
+            (SETTRADE Open API ที่มีอยู่ใช้ได้เฉพาะฝั่ง Admin เท่านั้น)
+          </p>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="/sidebar.js"></script>
+</body>
+</html>

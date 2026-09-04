@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aureum Admin — Watchlist หุ้นไทย</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  #logout { background:none; border:1px solid oklch(0.29 0.008 250); color:inherit; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px; }
+</style>
+</head>
+<body data-active="admin-watchlist">
+  <div class="app-shell">
+    <div id="sidebar-mount"></div>
+    <div class="main-col">
+      <div class="topbar">
+        <span style="font-size:14.5px; font-weight:700;">🔒 Admin · Watchlist หุ้นไทย</span>
+        <button id="logout">ออกจากระบบ</button>
+      </div>
+      <main>
+        <section class="card">
+          <div id="watchlist-body">กำลังโหลด…</div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="/sidebar.js"></script>
+  <script src="/admin/common.js"></script>
+  <script src="/admin/watchlist.js"></script>
+</body>
+</html>

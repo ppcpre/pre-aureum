@@ -7,8 +7,6 @@
 <link rel="stylesheet" href="/styles.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
-  .topbar { justify-content: space-between; }
-  .badge-lock { display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:oklch(0.75 0.14 85); }
   #logout { background:none; border:1px solid oklch(0.29 0.008 250); color:inherit; padding:6px 12px; border-radius:6px; cursor:pointer; font-family:inherit; font-size:12.5px; }
   .bias-badge { font-size: 22px; font-weight: 800; }
   .bias-badge.bullish { color: oklch(0.72 0.15 150); }
@@ -26,34 +24,41 @@
   .zone-tile .zone-value { font-family:'IBM Plex Mono', monospace; font-size:16px; font-weight:700; margin-top:6px; }
 </style>
 </head>
-<body>
-  <div class="topbar">
-    <div class="badge-lock">🔒 ADMIN · Entry/Exit Zone Finder — ทอง</div>
-    <button id="logout">ออกจากระบบ</button>
+<body data-active="admin-zone-finder">
+  <div class="app-shell">
+    <div id="sidebar-mount"></div>
+    <div class="main-col">
+      <div class="topbar">
+        <span style="font-size:14.5px; font-weight:700;">🔒 Admin · Entry/Exit Zone Finder — ทอง</span>
+        <button id="logout">ออกจากระบบ</button>
+      </div>
+
+      <main>
+        <section class="card">
+          <div class="label">Bias ปัจจุบัน</div>
+          <div class="bias-badge" id="bias">กำลังโหลด…</div>
+          <div class="muted" id="score"></div>
+        </section>
+
+        <section class="card">
+          <div class="label">Confluence Checklist</div>
+          <div id="checklist">กำลังโหลด…</div>
+        </section>
+
+        <section class="card">
+          <div class="label">โซนที่แนะนำพิจารณา</div>
+          <div class="zones-grid" id="zones"></div>
+        </section>
+
+        <div class="muted" style="text-align:center; padding: 8px 0;">
+          เครื่องมือช่วยวิเคราะห์ ไม่ใช่คำแนะนำการลงทุน
+        </div>
+      </main>
+    </div>
   </div>
 
-  <main>
-    <section class="card">
-      <div class="label">Bias ปัจจุบัน</div>
-      <div class="bias-badge" id="bias">กำลังโหลด…</div>
-      <div class="muted" id="score"></div>
-    </section>
-
-    <section class="card">
-      <div class="label">Confluence Checklist</div>
-      <div id="checklist">กำลังโหลด…</div>
-    </section>
-
-    <section class="card">
-      <div class="label">โซนที่แนะนำพิจารณา</div>
-      <div class="zones-grid" id="zones"></div>
-    </section>
-
-    <div class="muted" style="text-align:center; padding: 8px 0;">
-      เครื่องมือช่วยวิเคราะห์ ไม่ใช่คำแนะนำการลงทุน
-    </div>
-  </main>
-
+  <script src="/sidebar.js"></script>
+  <script src="/admin/common.js"></script>
   <script src="/admin/zone-finder.js"></script>
 </body>
 </html>

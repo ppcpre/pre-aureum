@@ -1,15 +1,5 @@
 const STATUS_ICON = { pass: "✓", fail: "✗", pending: "…" };
 
-async function guardAuth() {
-  const res = await fetch("/api/admin/me");
-  const data = await res.json();
-  if (!data.authenticated) {
-    window.location.href = "/admin/login";
-    return false;
-  }
-  return true;
-}
-
 async function loadZoneFinder() {
   const res = await fetch("/api/admin/zone-finder/gold");
 
@@ -21,10 +11,18 @@ async function loadZoneFinder() {
   const data = await res.json();
 
   if (!res.ok) {
-    document.getElementById("bias").textContent = "โหลดข้อมูลไม่สำเร็จ";
-    document.getElementById("score").textContent = data.message ?? "";
-    document.getElementById("checklist").textContent =
-      "มักเกิดจากยังไม่ได้ตั้งค่า TWELVEDATA_API_KEY";
+    const biasEl = document.getElementById("bias");
+    biasEl.textContent = "รอข้อมูล";
+    biasEl.className = "bias-badge neutral";
+    document.getElementById("score").innerHTML =
+      `<span class="pending-badge"><span class="dot"></span>รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)</span>`;
+    document.getElementById("checklist").innerHTML =
+      `<span class="pending-badge"><span class="dot"></span>เช็คลิสต์จะคำนวณได้เมื่อมีข้อมูลราคาแล้ว</span>`;
+    document.getElementById("zones").innerHTML = `
+      <div class="zone-tile"><div class="zone-label">โซนเข้าซื้อ</div><div class="zone-value muted">—</div></div>
+      <div class="zone-tile"><div class="zone-label">โซนตัดขาดทุน</div><div class="zone-value muted">—</div></div>
+      <div class="zone-tile"><div class="zone-label">โซนเป้าหมาย</div><div class="zone-value muted">—</div></div>
+    `;
     return;
   }
 
@@ -57,11 +55,6 @@ async function loadZoneFinder() {
   `;
 }
 
-document.getElementById("logout").addEventListener("click", async () => {
-  await fetch("/api/admin/logout", { method: "POST" });
-  window.location.href = "/admin/login";
-});
-
-guardAuth().then((ok) => {
+guardAdminAuth().then((ok) => {
   if (ok) loadZoneFinder();
 });

@@ -5,14 +5,20 @@ const tfButtons = document.querySelectorAll("#tf-tabs button");
 
 let currentTf = "H4";
 
+function pendingBadge(message) {
+  return `<span class="pending-badge"><span class="dot"></span>${message}</span>`;
+}
+
 async function loadPrice() {
   try {
     const res = await fetch("/api/price/gold");
+    if (!res.ok) throw new Error("not configured");
     const data = await res.json();
     priceEl.textContent = data.price.toFixed(2);
     updatedEl.textContent = `อัปเดตล่าสุด ${new Date(data.ts * 1000).toLocaleTimeString("th-TH")}`;
-  } catch (err) {
-    updatedEl.textContent = "โหลดราคาไม่สำเร็จ — เช็คว่าตั้งค่า TWELVEDATA_API_KEY แล้วหรือยัง";
+  } catch {
+    priceEl.textContent = "—";
+    updatedEl.innerHTML = pendingBadge("รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)");
   }
 }
 
@@ -20,10 +26,11 @@ async function loadSR(tf) {
   srListEl.textContent = "กำลังโหลด…";
   try {
     const res = await fetch(`/api/sr/gold?tf=${tf}`);
+    if (!res.ok) throw new Error("not configured");
     const data = await res.json();
 
     if (!data.levels || data.levels.length === 0) {
-      srListEl.textContent = "ยังไม่พบแนวรับ-แนวต้าน (ข้อมูลย้อนหลังอาจยังน้อยเกินไป)";
+      srListEl.innerHTML = pendingBadge("ยังไม่มีแนวรับ-แนวต้าน (ข้อมูลย้อนหลังยังน้อยเกินไป)");
       return;
     }
 
@@ -40,8 +47,8 @@ async function loadSR(tf) {
         </div>`
       )
       .join("");
-  } catch (err) {
-    srListEl.textContent = "โหลดแนวรับ-แนวต้านไม่สำเร็จ";
+  } catch {
+    srListEl.innerHTML = pendingBadge("รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)");
   }
 }
 

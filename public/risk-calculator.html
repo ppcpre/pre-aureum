@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aureum — คำนวณความเสี่ยง</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  main { max-width: 460px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 12px; color: oklch(0.60 0.01 250); }
+  .field input {
+    background: oklch(0.14 0.006 250); border: 1px solid oklch(0.29 0.008 250);
+    border-radius: 7px; padding: 10px 12px; color: inherit; font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+  }
+  .result-row { display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid oklch(0.26 0.008 250); }
+  .result-row:first-child { border-top: none; }
+  .result-value { font-family: 'IBM Plex Mono', monospace; font-weight: 700; }
+  .disclaimer { text-align: center; font-size: 11.5px; color: oklch(0.55 0.01 250); }
+</style>
+</head>
+<body data-active="gold-risk">
+  <div class="app-shell">
+    <div id="sidebar-mount"></div>
+    <div class="main-col">
+      <div class="topbar">
+        <span style="font-size:14.5px; font-weight:700;">คำนวณขนาดโพซิชันและความเสี่ยง</span>
+      </div>
+      <main>
+        <section class="card">
+          <div class="label">ข้อมูลนำเข้า</div>
+          <div class="field"><label>เงินทุนในบัญชี (USD)</label><input type="number" id="balance" value="10000"></div>
+          <div class="field"><label>ความเสี่ยงต่อการเทรด (%)</label><input type="number" id="riskPct" value="1" step="0.1"></div>
+          <div class="field"><label>ราคาเข้า (Entry)</label><input type="number" id="entry" value="2021.40" step="0.01"></div>
+          <div class="field"><label>ราคาตัดขาดทุน (Stop Loss)</label><input type="number" id="stop" value="2013.00" step="0.01"></div>
+          <div class="field"><label>ราคาเป้าหมาย (Take Profit)</label><input type="number" id="target" value="2041.60" step="0.01"></div>
+        </section>
+
+        <section class="card">
+          <div class="label">ผลลัพธ์</div>
+          <div id="results"></div>
+        </section>
+
+        <div class="disclaimer">เครื่องมือคำนวณเชิงคณิตศาสตร์เท่านั้น ไม่ใช่คำแนะนำการลงทุน</div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/sidebar.js"></script>
+  <script src="/risk-calculator.js"></script>
+</body>
+</html>

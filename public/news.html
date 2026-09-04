@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aureum — ข่าว</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  main { max-width: 780px; }
+  .news-item { padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid oklch(0.26 0.008 250); }
+  .news-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+  .news-title { font-size: 14.5px; font-weight: 700; margin: 6px 0; }
+  .news-title a { color: inherit; text-decoration: none; }
+  .news-title a:hover { color: oklch(0.75 0.14 85); }
+  .news-summary { font-size: 13px; color: oklch(0.70 0.01 250); line-height: 1.6; }
+</style>
+</head>
+<body data-active="gold-news">
+  <div class="app-shell">
+    <div id="sidebar-mount"></div>
+    <div class="main-col">
+      <div class="topbar">
+        <span style="font-size:14.5px; font-weight:700;">ข่าวและผลกระทบต่อแนวโน้ม</span>
+      </div>
+      <main>
+        <section class="card">
+          <div id="news-list">กำลังโหลด…</div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="/sidebar.js"></script>
+  <script src="/news.js"></script>
+</body>
+</html>
