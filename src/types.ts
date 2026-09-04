@@ -7,6 +7,7 @@ export interface Env {
   ENVIRONMENT: string;
   PRICE_POLL_MODE: string;
   TWELVEDATA_API_KEY: string;
+  ADMIN_PASSWORD: string;
 }
 
 export interface Candle {
