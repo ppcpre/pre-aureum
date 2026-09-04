@@ -3,6 +3,7 @@ import type { Env } from "../types";
 import { requireAdmin } from "../lib/auth";
 import { runChat, type ChatMessage } from "../lib/chat";
 import { getUsageSummary } from "../lib/chat-usage";
+import { clearChatHistory, getChatHistory } from "../lib/chat-history";
 
 export const chatRoute = new Hono<{ Bindings: Env }>();
 
@@ -56,6 +57,18 @@ chatRoute.post("/", requireAdmin, async (c) => {
       Connection: "keep-alive",
     },
   });
+});
+
+// GET /api/admin/chat/history — persisted conversation (single ongoing thread).
+chatRoute.get("/history", requireAdmin, async (c) => {
+  const messages = await getChatHistory(c.env.DB, 50);
+  return c.json({ messages });
+});
+
+// DELETE /api/admin/chat/history — start a fresh conversation.
+chatRoute.delete("/history", requireAdmin, async (c) => {
+  await clearChatHistory(c.env.DB);
+  return c.json({ ok: true });
 });
 
 // GET /api/admin/chat/usage — token usage + today's message quota.

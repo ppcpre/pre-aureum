@@ -35,6 +35,8 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - **Usage dashboard** (ปุ่ม "Usage" มุมขวาบน) — log token จริงลง D1 (`chat_usage`) โชว์ prompt/completion tokens วันนี้/ทั้งหมด **ไม่มีตัวเลข $ ประมาณการ** เพราะ Workers AI คิดราคาเป็น Neuron ไม่ใช่ $/token ตรงๆ (เลขจริงเช็คได้ที่ Cloudflare Dashboard)
   - **Safety net**: จำกัด 200 ข้อความ/วัน (กันโควตา Neurons ฟรีของทั้งบัญชีหมดจาก bug), tool-loop จำกัดสูงสุด 4 รอบ/ข้อความ
   - อยากสลับกลับไปใช้ Claude (คุณภาพสูงกว่า, เสียเงิน) — โค้ดเวอร์ชัน Claude/Sonnet 5 อยู่ใน git history (commit ก่อนหน้านี้) กู้กลับมาได้ถ้าต้องการ
+  - ✅ **Chat history persist แล้ว** — เก็บบทสนทนาลง D1 table ใหม่ `chat_messages` (`lib/chat-history.ts`: `saveChatMessage`/`getChatHistory`/`clearChatHistory`) บันทึกทุกข้อความ user+assistant ทันทีที่ตอบ โหลด 50 ข้อความล่าสุดตอนเปิดหน้า (`GET /api/admin/chat/history`) ปิดแท็บ/reload แล้วคุยต่อได้ปกติ มีปุ่ม "เริ่มแชทใหม่" ลบประวัติทิ้ง (`DELETE /api/admin/chat/history`) — migrate ทั้ง local และ remote D1 แล้ว ทดสอบผ่าน browser จริงทั้ง flow (ส่ง → reload → ยังอยู่ → เริ่มแชทใหม่ → เคลียร์จริง) ทั้ง local dev และ production
+  - ✅ **หน้าตา friendly ขึ้น** — icon AI น่ารัก (SVG หัวมน ตา 2 จุด ยิ้ม เสาอากาศ สี gold) โผล่ทั้ง topbar และข้าง bubble ของ assistant ระหว่างรอคำตอบเปลี่ยนจาก spinner ธรรมดาเป็น "thinking card": icon โยกเบาๆ (bob animation) + progress bar (ขยับแบบ asymptotic ตามเวลาจริงที่ผ่านไป บวก boost ทุกครั้งที่มี tool call จริงเกิดขึ้น ไม่ใช่ progress ปลอม) + ตัวนับวินาทีจริง (`(Date.now()-startedAt)/1000` อัปเดตทุก 100ms) — ทดสอบแล้วเห็น icon โยก, progress bar วิ่ง, ตัวนับวินาทีเดินจริงระหว่างรอ tool call
 
 - ✅ กราฟแท่งเทียนจริง — SVG ล้วน ไม่พึ่ง library (`public/candlestick-chart.js`) ใช้ร่วมกันทั้งทองและหุ้นไทย วาดจาก `/api/price/*/history` จริง overlay เส้นแนวรับ-ต้าน + เส้นราคาปัจจุบัน สลับ timeframe/symbol แล้ว re-render ถูกต้อง — ตรวจด้วยตาจริงผ่าน browser ไม่ใช่แค่ curl (เจอบั๊ก `/api/price/stock/` มี trailing slash เกินจนหน้าเว็บพังเงียบๆ ระหว่างเช็ค แก้แล้ว)
   - เพิ่ม label "(ช่วงกราฟที่แสดง)" กำกับ % เปลี่ยนแปลงในหัวการ์ด เพราะความหมายเปลี่ยนไปตาม timeframe ที่เลือก (ไม่ใช่ % ต่อวันเสมอไป) กันเข้าใจผิด
@@ -43,7 +45,6 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - **⚠️ เจอบั๊กจริงจัง**: Cloudflare Workers Free plan จำกัด **50 subrequests ต่อ 1 invocation** — ทั้ง Screener (loop 50 หุ้น) และ cron รายชั่วโมงเดิม (fetch ราคา+ประวัติ 50 หุ้น) จะ**เกินลิมิตแล้วพังกลางคัน**ถ้าไม่แก้ พบระหว่างทดสอบจริง (screener โหลด 12.5 วิ ตอน cache ว่าง) ไม่ใช่แค่เดา
   - แก้โดย: **Screener อ่านจาก D1 อย่างเดียว ไม่ fetch สดเด็ดขาด** (ข้ามหุ้นที่ cron ยังไปไม่ถึง แทนที่จะ fetch แทน) + **cron แบ่งเป็น batch 15 ตัว/รอบ หมุนผ่าน KV cursor** (ครบ 50 ตัวใน ~4 ชั่วโมง) + cron ดึงแค่ D1 (ตัด H4 ออกจาก eager fetch, timeframe อื่น lazy-load ทีหลังตอนมีคนดูจริง)
   - ผลคือหลัง deploy ใหม่ **หุ้น 46 ตัวที่เพิ่มมาจะยังไม่ขึ้นใน Screener ทันที** ต้องรอ cron หมุนไปถึงภายในไม่กี่ชั่วโมง (4 ตัวเดิมที่มีข้อมูลอยู่แล้วขึ้นปกติ)
-- ⬜ Chat history ยังไม่ persist (เก็บแค่ฝั่ง browser ปิดแท็บแล้วหาย) — ถ้าอยากคุยต่อได้ข้ามเซสชัน ต้องเพิ่ม D1 table เก็บบทสนทนา
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
 - ⬜ Scalp Mode (poll ทุก 10-15 วิ) — ยังไม่เปิดใช้ จนกว่าจะเช็ค quota ฟรีของ Twelve Data ว่าพอจริงไหม
 
@@ -127,6 +128,7 @@ src/
     chat.ts          Workers AI (Qwen3.8-27B) manual tool-use loop, OpenAI Chat Completions shape — SSE relay
     chat-tools.ts    Tool definitions (OpenAI-style) + executor — read-only, calls the same lib fns as the REST routes
     chat-usage.ts    Token usage logging + summary (chat_usage table) — no $ estimate, see M7 notes above
+    chat-history.ts  Persist chat_messages (D1) — save/get/clear, ใช้โดย routes/chat.ts
 public/
   sidebar.js         Sidebar เมนู (mount ทุกหน้าผ่าน #sidebar-mount)
   index.html/js      ทอง Dashboard

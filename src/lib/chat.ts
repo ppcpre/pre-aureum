@@ -1,6 +1,7 @@
 import type { Env } from "../types";
 import { CHAT_TOOL_DEFS, executeChatTool, toOpenAiTools } from "./chat-tools";
 import { logChatUsage } from "./chat-usage";
+import { saveChatMessage } from "./chat-history";
 
 // Chosen for solid Thai-language quality (user's explicit requirement) —
 // verified 2026-09-04 by testing directly (see README): this model returns
@@ -80,6 +81,8 @@ export async function runChat(
   ];
 
   try {
+    await saveChatMessage(env.DB, "user", userMessage);
+
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
       const result = (await env.AI.run(MODEL, {
         messages,
@@ -113,8 +116,9 @@ export async function runChat(
         continue; // loop again so the model can produce a final answer from the tool results
       }
 
-      const text = (message?.content ?? "").trim();
-      await sendEvent(writer, { type: "text", text: text || "(ไม่มีคำตอบจากโมเดล)" });
+      const text = (message?.content ?? "").trim() || "(ไม่มีคำตอบจากโมเดล)";
+      await sendEvent(writer, { type: "text", text });
+      await saveChatMessage(env.DB, "assistant", text);
       break;
     }
 

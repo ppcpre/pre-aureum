@@ -44,3 +44,14 @@ CREATE TABLE IF NOT EXISTS chat_usage (
 );
 
 CREATE INDEX IF NOT EXISTS idx_chat_usage_ts ON chat_usage (ts DESC);
+
+-- Admin AI Chat — persisted conversation (single ongoing thread, admin-only
+-- single user so no session/thread id needed yet).
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts      INTEGER NOT NULL,   -- unix seconds
+  role    TEXT    NOT NULL,   -- 'user' | 'assistant'
+  content TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_ts ON chat_messages (ts);

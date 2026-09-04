@@ -9,10 +9,11 @@
 <style>
   body, .app-shell { height: 100vh; }
   .chat-main { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0 !important; }
-  #logout, #usage-toggle {
+  #logout, #usage-toggle, #clear-btn {
     background: none; border: 1px solid oklch(0.29 0.008 250); color: inherit;
     padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12.5px;
   }
+  .topbar-title { display: flex; align-items: center; gap: 9px; font-size: 14.5px; font-weight: 700; }
   .topbar-actions { display: flex; align-items: center; gap: 8px; }
 
   #usage-panel {
@@ -22,22 +23,34 @@
   #usage-panel.open { display: block; }
   .usage-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12.5px; }
   .usage-section-label { font-size: 11px; font-weight: 700; color: oklch(0.60 0.01 250); text-transform: uppercase; letter-spacing: 0.4px; margin: 10px 0 4px; }
-  .usage-cost { font-size: 20px; font-weight: 800; color: oklch(0.75 0.14 85); }
 
-  #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-  .msg { max-width: 640px; padding: 12px 15px; border-radius: 10px; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; }
-  .msg.user { align-self: flex-end; background: oklch(0.75 0.14 85 / 0.14); border: 1px solid oklch(0.75 0.14 85 / 0.3); }
-  .msg.assistant { align-self: flex-start; background: oklch(0.20 0.007 250); border: 1px solid oklch(0.29 0.008 250); }
-  .tool-indicator {
-    align-self: flex-start; display: flex; align-items: center; gap: 8px;
-    font-size: 12px; color: oklch(0.78 0.15 70); padding: 4px 2px;
+  #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  .msg-row { display: flex; gap: 10px; align-items: flex-end; }
+  .msg-row.user { flex-direction: row-reverse; }
+
+  .ai-avatar {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: oklch(0.75 0.14 85 / 0.14); border: 1px solid oklch(0.75 0.14 85 / 0.35);
+    display: flex; align-items: center; justify-content: center;
   }
-  .tool-indicator .spin {
-    width: 11px; height: 11px; border-radius: 50%;
-    border: 2px solid oklch(0.78 0.15 70 / 0.3); border-top-color: oklch(0.78 0.15 70);
-    animation: spin 0.7s linear infinite;
+  .ai-avatar.thinking svg { animation: bob 1.1s ease-in-out infinite; }
+  @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+
+  .msg { max-width: 620px; padding: 12px 15px; border-radius: 12px; font-size: 13.5px; line-height: 1.65; white-space: pre-wrap; }
+  .msg.user { background: oklch(0.75 0.14 85 / 0.14); border: 1px solid oklch(0.75 0.14 85 / 0.3); border-bottom-right-radius: 3px; }
+  .msg.assistant { background: oklch(0.20 0.007 250); border: 1px solid oklch(0.29 0.008 250); border-bottom-left-radius: 3px; }
+
+  .thinking-card {
+    display: flex; flex-direction: column; gap: 8px; padding: 12px 15px; border-radius: 12px;
+    border-bottom-left-radius: 3px; background: oklch(0.20 0.007 250); border: 1px solid oklch(0.29 0.008 250);
+    min-width: 220px;
   }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .thinking-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .thinking-label { font-size: 12.5px; color: oklch(0.78 0.15 70); font-weight: 600; }
+  .thinking-seconds { font-size: 11.5px; color: oklch(0.55 0.01 250); font-family: 'IBM Plex Mono', monospace; }
+  .thinking-track { height: 5px; border-radius: 3px; background: oklch(0.29 0.008 250); overflow: hidden; }
+  .thinking-fill { height: 100%; border-radius: 3px; background: oklch(0.75 0.14 85); width: 0%; transition: width 0.35s ease-out; }
 
   #input-bar { flex-shrink: 0; display: flex; gap: 10px; padding: 16px 20px; border-top: 1px solid oklch(0.29 0.008 250); }
   #input-box {
@@ -56,8 +69,21 @@
     <div id="sidebar-mount"></div>
     <div class="main-col">
       <div class="topbar" style="position: relative;">
-        <span style="font-size:14.5px; font-weight:700;">🔒 Admin · AI Chat</span>
+        <div class="topbar-title">
+          <span class="ai-avatar" style="width:24px;height:24px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <rect x="4" y="7" width="16" height="13" rx="5" stroke="oklch(0.75 0.14 85)" stroke-width="1.8"/>
+              <circle cx="9" cy="13" r="1.4" fill="oklch(0.75 0.14 85)"/>
+              <circle cx="15" cy="13" r="1.4" fill="oklch(0.75 0.14 85)"/>
+              <path d="M9.5 16.3 Q12 18 14.5 16.3" stroke="oklch(0.75 0.14 85)" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+              <path d="M12 7 V4" stroke="oklch(0.75 0.14 85)" stroke-width="1.7" stroke-linecap="round"/>
+              <circle cx="12" cy="3" r="1.2" fill="oklch(0.75 0.14 85)"/>
+            </svg>
+          </span>
+          🔒 Admin · AI Chat
+        </div>
         <div class="topbar-actions">
+          <button id="clear-btn">เริ่มแชทใหม่</button>
           <button id="usage-toggle">Usage</button>
           <button id="logout">ออกจากระบบ</button>
         </div>
@@ -79,9 +105,7 @@
       </div>
 
       <main class="chat-main">
-        <div id="messages">
-          <div class="msg assistant">สวัสดีครับ ถามเรื่องราคาทอง แนวรับ-แนวต้าน หรือข่าวได้เลย — ผมจะเช็คข้อมูลจริงจากระบบก่อนตอบ</div>
-        </div>
+        <div id="messages"></div>
         <div id="input-bar">
           <textarea id="input-box" rows="1" placeholder="พิมพ์คำถาม..."></textarea>
           <button id="send-btn">ส่ง</button>
