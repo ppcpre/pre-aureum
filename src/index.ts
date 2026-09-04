@@ -95,7 +95,14 @@ async function pollStockPrices(env: Env): Promise<void> {
       await putJSON(env.CACHE, `price:stock:${symbol}:latest`, { price, ts: Math.floor(Date.now() / 1000) }, 240);
 
       const candles = await yahoo.fetchTimeSeries(symbol, "D1");
-      await upsertCandles(env.DB, symbol, "D1", candles);
+      // Yahoo returns ~6 months of daily candles (~126 rows) every call, but only the
+      // last day or two can actually have changed since the last run — re-upserting
+      // the full range every hour was writing ~1,890 D1 rows/run (15 symbols × ~126),
+      // ~45k+/day, and pushed the account to 93% of the free 100k rows_written/day cap
+      // (caught via Cloudflare's usage-limit email — see README). Only the tail needs
+      // writing; full history for a symbol is still backfilled once via the lazy-load
+      // path in routes/stock.ts the first time anyone views it.
+      await upsertCandles(env.DB, symbol, "D1", candles.slice(-3));
     } catch (err) {
       console.error(`[cron] pollStockPrices failed for ${symbol}:`, err);
     }
