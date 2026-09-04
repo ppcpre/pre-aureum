@@ -1,42 +1,41 @@
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "aureum",
-  "main": "src/index.ts",
-  "compatibility_date": "2026-09-01",
-  "compatibility_flags": ["nodejs_compat"],
-
-  "assets": {
-    "directory": "./public",
-    "binding": "ASSETS"
-  },
-
-  "vars": {
-    "ENVIRONMENT": "development",
-    // Day Trade Mode = poll every 5 min. Scalp Mode not enabled yet — see README.
-    "PRICE_POLL_MODE": "day_trade"
-  },
-
-  // Run `wrangler kv namespace create AUREUM_CACHE` then paste the id below.
-  "kv_namespaces": [
-    { "binding": "CACHE", "id": "REPLACE_WITH_KV_NAMESPACE_ID" }
-  ],
-
-  // Run `wrangler d1 create aureum-db` then paste the database_id below.
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "aureum-db",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
-    }
-  ],
-
-  // Day Trade Mode: poll gold price every 5 minutes.
-  "triggers": {
-    "crons": ["*/5 * * * *"]
-  },
-
-  "observability": {
-    "enabled": true,
-    "head_sampling_rate": 1
-  }
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "aureum",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-09-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS"
+	},
+	"vars": {
+		"ENVIRONMENT": "development",
+		// Day Trade Mode = poll every 5 min. Scalp Mode not enabled yet — see README.
+		"PRICE_POLL_MODE": "day_trade"
+	},
+	"kv_namespaces": [
+		{
+			"binding": "CACHE",
+			"id": "070084bb86b144b2af78f9b14badf735"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "aureum-db",
+			"database_id": "01080eb1-19e7-4392-9774-a28898587b26"
+		}
+	],
+	// Day Trade Mode: poll gold price every 5 minutes.
+	"triggers": {
+		"crons": [
+			"*/5 * * * *"
+		]
+	},
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1
+	}
 }
