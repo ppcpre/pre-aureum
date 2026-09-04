@@ -15,7 +15,8 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
 - ✅ M4 — News pipeline (RSS → D1) — ทดสอบแล้วใช้งานได้จริง ไม่ต้องมี API key
   - แหล่งข่าวที่ยืนยันแล้วว่าใช้ได้ (เช็ค 2026-09-04): **FXStreet** (`fxstreet`)
   - แหล่งที่เช็คแล้วตายไปแล้ว อย่าใส่กลับโดยไม่เช็คซ้ำ: Kitco RSS (404), Investing.com commodities RSS (404)
-  - Sentiment/Impact analysis (Workers AI) — ยังไม่ทำ ฟิลด์ยังเป็น `null`
+  - Sentiment/Impact analysis: **เสร็จแล้ว** — Workers AI (`@cf/meta/llama-3.2-3b-instruct`) วิเคราะห์ทุกข่าวที่ยังไม่มี sentiment ทีละ 10 รายการ/รอบ cron (กันไม่ให้ใช้โควตาพุ่งทีเดียว, backlog ที่มีอยู่ก่อนจะค่อยๆ ถูกจัดการทีละรอบ)
+    - เจอบั๊กระหว่างทดสอบ: field `response` จาก Workers AI บางครั้งเป็น object ที่ parse มาให้แล้ว ไม่ใช่ string เสมอไป (เจอกับโมเดลนี้ 2026-09-04) — เดิม parser เข้าใจผิดว่าเป็น string เสมอ ทำให้ผลลัพธ์ตกไปที่ fallback "neutral/low" ทุกข่าว แก้แล้วให้รองรับทั้งสองแบบ ทดสอบซ้ำแล้วได้ผลลัพธ์หลากหลายตามเนื้อข่าวจริง
 - ✅ M5 — Admin auth (single-password session, cookie + KV, `requireAdmin` middleware) + หน้า Zone Finder (ทอง, logic จริง) / Watchlist / Auto Trade Status (placeholder ที่ซื่อสัตย์ อยู่หลัง auth เดียวกัน) — มีหน้า login จริงที่ `/admin/login`
 
 - ✅ M6 — หุ้นไทย Dashboard/Screener ใช้งานได้จริง ผ่าน **Yahoo Finance (unofficial, `.BK`)** — Research แล้วว่านี่คือสิ่งที่นักพัฒนาไทยใช้กันจริงสำหรับข้อมูลฟรี (ยืนยัน 2026-09-04) แต่:
@@ -27,7 +28,7 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
 
 ## ยังไม่ทำ (ทำต่อได้ตามลำดับ)
 - ⬜ ขยาย watchlist หุ้นไทย + ค้นหาได้ทุก symbol ใน SET (ตอนนี้จำกัด 4 ตัว)
-- ⬜ Sentiment/Impact scoring ข่าว ผ่าน Workers AI
+- ⬜ กราฟแท่งเทียนจริง (ตอนนี้มีแค่ตัวเลขราคา + list แนวรับ-ต้าน)
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
 - ⬜ Scalp Mode (poll ทุก 10-15 วิ) — ยังไม่เปิดใช้ จนกว่าจะเช็ค quota ฟรีของ Twelve Data ว่าพอจริงไหม
 

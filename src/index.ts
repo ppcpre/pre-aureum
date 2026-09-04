@@ -10,7 +10,7 @@ import { fetchLatestPrice, fetchTimeSeries } from "./lib/twelvedata";
 import * as yahoo from "./lib/yahoo-finance";
 import { putJSON } from "./lib/kv-cache";
 import { upsertCandles } from "./lib/candles-db";
-import { pollNews } from "./lib/news-poll";
+import { analyzePendingSentiment, pollNews } from "./lib/news-poll";
 import { STOCK_WATCHLIST } from "./lib/stock-symbols";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -76,6 +76,12 @@ async function pollStockPrices(env: Env): Promise<void> {
 export default {
   fetch: app.fetch,
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(Promise.allSettled([pollGoldPrice(env), pollNews(env), pollStockPrices(env)]));
+    ctx.waitUntil(
+      Promise.allSettled([
+        pollGoldPrice(env),
+        pollNews(env).then(() => analyzePendingSentiment(env)),
+        pollStockPrices(env),
+      ])
+    );
   },
 } satisfies ExportedHandler<Env>;

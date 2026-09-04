@@ -28,6 +28,8 @@
 			"database_id": "01080eb1-19e7-4392-9774-a28898587b26"
 		}
 	],
+	// News sentiment/impact scoring — see src/lib/sentiment.ts
+	"ai": { "binding": "AI" },
 	// Day Trade Mode: poll gold price every 5 minutes.
 	"triggers": {
 		"crons": [
