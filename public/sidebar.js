@@ -6,6 +6,7 @@ const ICONS = {
   info: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8 V13 M12 16h.01" stroke-linecap="round"/></svg>',
   bookmark: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   bolt: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 L4 14 H11 L10 22 L20 9 H13 Z" stroke-linejoin="round"/></svg>',
+  chat: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
   lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11 V7a4 4 0 0 1 8 0v4"/></svg>',
 };
 
@@ -24,6 +25,7 @@ const ADMIN_NAV = [
   { id: "admin-zone-finder", href: "/admin/zone-finder", label: "Zone Finder (ทอง)", icon: "info" },
   { id: "admin-watchlist", href: "/admin/watchlist", label: "Watchlist หุ้นไทย", icon: "bookmark" },
   { id: "admin-auto-trade", href: "/admin/auto-trade", label: "Auto Trade", icon: "bolt" },
+  { id: "admin-chat", href: "/admin/chat", label: "AI Chat", icon: "chat" },
 ];
 
 function navItem(item, activeId) {

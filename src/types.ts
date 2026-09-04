@@ -9,6 +9,7 @@ export interface Env {
   TWELVEDATA_API_KEY: string;
   ADMIN_PASSWORD: string;
   AI: Ai;
+  ANTHROPIC_API_KEY: string;
 }
 
 export interface Candle {

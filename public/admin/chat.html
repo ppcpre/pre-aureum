@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aureum Admin — AI Chat</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  body, .app-shell { height: 100vh; }
+  .chat-main { flex: 1; display: flex; flex-direction: column; min-height: 0; padding: 0 !important; }
+  #logout, #usage-toggle {
+    background: none; border: 1px solid oklch(0.29 0.008 250); color: inherit;
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12.5px;
+  }
+  .topbar-actions { display: flex; align-items: center; gap: 8px; }
+
+  #usage-panel {
+    position: absolute; top: 56px; right: 20px; width: 320px; z-index: 10;
+    padding: 18px; display: none;
+  }
+  #usage-panel.open { display: block; }
+  .usage-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12.5px; }
+  .usage-section-label { font-size: 11px; font-weight: 700; color: oklch(0.60 0.01 250); text-transform: uppercase; letter-spacing: 0.4px; margin: 10px 0 4px; }
+  .usage-cost { font-size: 20px; font-weight: 800; color: oklch(0.75 0.14 85); }
+
+  #messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 640px; padding: 12px 15px; border-radius: 10px; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: oklch(0.75 0.14 85 / 0.14); border: 1px solid oklch(0.75 0.14 85 / 0.3); }
+  .msg.assistant { align-self: flex-start; background: oklch(0.20 0.007 250); border: 1px solid oklch(0.29 0.008 250); }
+  .tool-indicator {
+    align-self: flex-start; display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: oklch(0.78 0.15 70); padding: 4px 2px;
+  }
+  .tool-indicator .spin {
+    width: 11px; height: 11px; border-radius: 50%;
+    border: 2px solid oklch(0.78 0.15 70 / 0.3); border-top-color: oklch(0.78 0.15 70);
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #input-bar { flex-shrink: 0; display: flex; gap: 10px; padding: 16px 20px; border-top: 1px solid oklch(0.29 0.008 250); }
+  #input-box {
+    flex: 1; background: oklch(0.14 0.006 250); border: 1px solid oklch(0.29 0.008 250);
+    border-radius: 8px; padding: 11px 14px; color: inherit; font-family: inherit; font-size: 13.5px; resize: none;
+  }
+  #send-btn {
+    background: oklch(0.75 0.14 85); color: oklch(0.16 0.02 85); border: none;
+    border-radius: 8px; padding: 0 20px; font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+</head>
+<body data-active="admin-chat">
+  <div class="app-shell">
+    <div id="sidebar-mount"></div>
+    <div class="main-col">
+      <div class="topbar" style="position: relative;">
+        <span style="font-size:14.5px; font-weight:700;">🔒 Admin · AI Chat</span>
+        <div class="topbar-actions">
+          <button id="usage-toggle">Usage</button>
+          <button id="logout">ออกจากระบบ</button>
+        </div>
+
+        <div id="usage-panel" class="card">
+          <div class="usage-section-label">วันนี้</div>
+          <div class="usage-cost" id="usage-today-cost">$0.0000</div>
+          <div class="usage-row"><span class="muted">ข้อความ</span><span class="mono" id="usage-today-count">0</span></div>
+          <div class="usage-row"><span class="muted">Input tokens</span><span class="mono" id="usage-today-input">0</span></div>
+          <div class="usage-row"><span class="muted">Output tokens</span><span class="mono" id="usage-today-output">0</span></div>
+
+          <div class="usage-section-label">ทั้งหมด</div>
+          <div class="usage-cost" id="usage-all-cost">$0.0000</div>
+          <div class="usage-row"><span class="muted">ข้อความ</span><span class="mono" id="usage-all-count">0</span></div>
+        </div>
+      </div>
+
+      <main class="chat-main">
+        <div id="messages">
+          <div class="msg assistant">สวัสดีครับ ถามเรื่องราคาทอง แนวรับ-แนวต้าน หรือข่าวได้เลย — ผมจะเช็คข้อมูลจริงจากระบบก่อนตอบ</div>
+        </div>
+        <div id="input-bar">
+          <textarea id="input-box" rows="1" placeholder="พิมพ์คำถาม..."></textarea>
+          <button id="send-btn">ส่ง</button>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script src="/sidebar.js"></script>
+  <script src="/admin/common.js"></script>
+  <script src="/admin/chat.js"></script>
+</body>
+</html>

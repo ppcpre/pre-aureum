@@ -26,9 +26,18 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - Screener มี filter จริง: พุ่งขึ้น/ลงแรง 24ชม., ใกล้แนวรับ, ทะลุแนวต้าน (breakout = ทำ high ใหม่ในรอบ 10 วัน)
   - แก้บั๊ก: แนวรับ-ต้านเดิม cluster ถี่เกินไปสำหรับหุ้นราคาต่ำ (tick size ใหญ่กว่า tolerance เดิม) ปรับ `tolerancePct` 0.15% → 0.3% และเพิ่ม `pickNearestLevels()` ตัดเหลือแนวใกล้ราคาที่สุดฝั่งละ 4 ระดับ (ใช้ทั้งทองและหุ้นไทย)
 
+- ✅ M7 — Admin AI Chat (`/admin/chat`) เชื่อม Claude จริง — **Sonnet 5** (เลือกเองตามที่คุยกันไว้ กระทบค่าใช้จ่ายโดยตรง อย่าเปลี่ยนโดยไม่ถาม)
+  - **Admin-only** เท่านั้น (ไม่ใช่ public — ตัดสินใจไว้เพราะ Claude API มีค่าใช้จ่ายจริงต่อ request)
+  - **Tool use / grounding**: Claude เรียก tool จริงของระบบก่อนตอบเสมอ (ราคาทอง, S/R ทอง, ราคาหุ้น, S/R หุ้น, ข่าวล่าสุด, screener) — ห้ามตอบราคาจาก training data ของตัวเอง ระบุไว้ใน system prompt ชัดเจน tool ทั้งหมดเป็น **read-only** ไม่มี tool ไหนสั่งเทรดหรือแก้ค่าอะไรได้
+  - **Streaming**: SSE ผ่าน `TransformStream` + `c.executionCtx.waitUntil()` — เห็นข้อความไหลทีละคำ ไม่ต้องรอทั้งก้อน พร้อมโชว์สถานะ "กำลังเช็ค..." ตอนเรียก tool (ความโปร่งใส ไม่ใช่กล่องดำ)
+  - **Usage/Cost dashboard** ในหน้าเดียวกัน (ปุ่ม "Usage" มุมขวาบน) — log ทุก request ลง D1 (`chat_usage`) คำนวณค่าใช้จ่ายประมาณการจาก token จริง โชว์ทั้งวันนี้/ทั้งหมด
+  - **Safety net**: จำกัด 200 ข้อความ/วัน (กัน bug ทำให้ยิง request รัว), `max_tokens` จำกัดไว้ที่ 4096 ต่อคำตอบ (ตั้งใจ cap ต้นทุน ไม่ใช่ default เต็มที่), จำกัด tool-loop สูงสุด 6 รอบ/ข้อความ
+  - **รอ ANTHROPIC_API_KEY** (ผู้ใช้จะใส่เอง ใช้ token ส่วนตัว) — ตอนนี้ error แบบ friendly ("รอเชื่อมต่อ Claude") ไม่ใช่หน้า error
+
 ## ยังไม่ทำ (ทำต่อได้ตามลำดับ)
 - ⬜ ขยาย watchlist หุ้นไทย + ค้นหาได้ทุก symbol ใน SET (ตอนนี้จำกัด 4 ตัว)
 - ⬜ กราฟแท่งเทียนจริง (ตอนนี้มีแค่ตัวเลขราคา + list แนวรับ-ต้าน)
+- ⬜ Chat history ยังไม่ persist (เก็บแค่ฝั่ง browser ปิดแท็บแล้วหาย) — ถ้าอยากคุยต่อได้ข้ามเซสชัน ต้องเพิ่ม D1 table เก็บบทสนทนา
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
 - ⬜ Scalp Mode (poll ทุก 10-15 วิ) — ยังไม่เปิดใช้ จนกว่าจะเช็ค quota ฟรีของ Twelve Data ว่าพอจริงไหม
 
@@ -94,6 +103,7 @@ src/
     admin.ts         POST /api/admin/login, /logout, GET /me, /ping, /zone-finder/gold, /watchlist, /auto-trade/status (all protected)
     stock.ts         GET /api/price/stock(/:symbol), /api/sr/stock/:symbol — หุ้นไทย
     screener.ts      GET /api/screener/stock
+    chat.ts          POST /api/admin/chat (SSE), GET /api/admin/chat/usage (both protected)
   lib/
     twelvedata.ts    Twelve Data API client (ทอง)
     yahoo-finance.ts Yahoo Finance unofficial client (หุ้นไทย, .BK) — ดู caveat ในไฟล์
@@ -108,6 +118,9 @@ src/
     news-db.ts       D1 upsert สำหรับข่าว (dedupe ด้วย url)
     news-poll.ts     ฟังก์ชันดึงข่าวทุก source แล้วบันทึก
     auth.ts          Admin session (cookie + KV) + requireAdmin middleware
+    chat.ts          Claude streaming agentic loop (SSE relay + tool-use loop)
+    chat-tools.ts    Tool definitions + executor — read-only, calls the same lib fns as the REST routes
+    chat-usage.ts    Token/cost logging + summary (chat_usage table)
 public/
   sidebar.js         Sidebar เมนู (mount ทุกหน้าผ่าน #sidebar-mount)
   index.html/js      ทอง Dashboard
@@ -115,6 +128,6 @@ public/
   risk-calculator.*  ทอง คำนวณความเสี่ยง (client-side ล้วน)
   stock-dashboard.*  หุ้นไทย Dashboard
   screener.html/js   หุ้นไทย Screener
-  admin/             login, zone-finder, watchlist, auto-trade (+ common.js: auth guard/logout)
+  admin/             login, zone-finder, watchlist, auto-trade, chat (+ common.js: auth guard/logout)
 schema.sql           D1 schema
 ```

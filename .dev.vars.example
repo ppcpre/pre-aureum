@@ -7,3 +7,7 @@ TWELVEDATA_API_KEY=your-twelvedata-api-key
 # Password for the single admin account (Zone Finder / Watchlist / Auto Trade).
 # For deployed environments use: wrangler secret put ADMIN_PASSWORD
 ADMIN_PASSWORD=change-me
+
+# Admin AI Chat (Claude). Costs real money per message — see README.
+# For deployed environments use: wrangler secret put ANTHROPIC_API_KEY
+ANTHROPIC_API_KEY=your-anthropic-api-key

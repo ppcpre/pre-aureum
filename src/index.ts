@@ -6,6 +6,7 @@ import { newsRoute } from "./routes/news";
 import { adminRoute } from "./routes/admin";
 import { stockRoute, stockSrRoute } from "./routes/stock";
 import { screenerRoute } from "./routes/screener";
+import { chatRoute } from "./routes/chat";
 import { fetchLatestPrice, fetchTimeSeries } from "./lib/twelvedata";
 import * as yahoo from "./lib/yahoo-finance";
 import { putJSON } from "./lib/kv-cache";
@@ -24,6 +25,7 @@ app.route("/api/admin", adminRoute);
 app.route("/api/price/stock", stockRoute);
 app.route("/api/sr/stock", stockSrRoute);
 app.route("/api/screener", screenerRoute);
+app.route("/api/admin/chat", chatRoute);
 
 // Anything that isn't an API route falls through to the static frontend.
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));

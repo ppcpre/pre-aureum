@@ -31,3 +31,16 @@ CREATE TABLE IF NOT EXISTS news (
 );
 
 CREATE INDEX IF NOT EXISTS idx_news_published ON news (published_at DESC);
+
+-- Admin AI Chat (Claude) — usage log for the cost dashboard in /admin/chat.
+CREATE TABLE IF NOT EXISTS chat_usage (
+  id                        INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts                        INTEGER NOT NULL,   -- unix seconds
+  model                     TEXT    NOT NULL,
+  input_tokens              INTEGER NOT NULL,
+  output_tokens             INTEGER NOT NULL,
+  cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0,
+  cache_read_input_tokens   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_usage_ts ON chat_usage (ts DESC);
