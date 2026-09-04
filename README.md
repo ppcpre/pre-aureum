@@ -45,6 +45,12 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - **⚠️ เจอบั๊กจริงจัง**: Cloudflare Workers Free plan จำกัด **50 subrequests ต่อ 1 invocation** — ทั้ง Screener (loop 50 หุ้น) และ cron รายชั่วโมงเดิม (fetch ราคา+ประวัติ 50 หุ้น) จะ**เกินลิมิตแล้วพังกลางคัน**ถ้าไม่แก้ พบระหว่างทดสอบจริง (screener โหลด 12.5 วิ ตอน cache ว่าง) ไม่ใช่แค่เดา
   - แก้โดย: **Screener อ่านจาก D1 อย่างเดียว ไม่ fetch สดเด็ดขาด** (ข้ามหุ้นที่ cron ยังไปไม่ถึง แทนที่จะ fetch แทน) + **cron แบ่งเป็น batch 15 ตัว/รอบ หมุนผ่าน KV cursor** (ครบ 50 ตัวใน ~4 ชั่วโมง) + cron ดึงแค่ D1 (ตัด H4 ออกจาก eager fetch, timeframe อื่น lazy-load ทีหลังตอนมีคนดูจริง)
   - ผลคือหลัง deploy ใหม่ **หุ้น 46 ตัวที่เพิ่มมาจะยังไม่ขึ้นใน Screener ทันที** ต้องรอ cron หมุนไปถึงภายในไม่กี่ชั่วโมง (4 ตัวเดิมที่มีข้อมูลอยู่แล้วขึ้นปกติ)
+- ✅ **AI Dashboard summary card** (`GET /api/dashboard-summary`) — การ์ดสรุปข่าวทอง + หุ้นไทยที่น่าสนใจ โผล่บน Dashboard ทองทันทีที่เปิดหน้า (`lib/dashboard-summary.ts`)
+  - ดึงข้อมูลจริงล้วน: ราคา+แนวรับ-ต้านทอง (ถ้ามี), ข่าวทองล่าสุด 5 ชิ้นจาก D1, สัญญาณหุ้นไทยจาก **screener engine เดิม** (`buildScreener` ที่มีอยู่แล้ว, D1-only, ไม่เพิ่ม subrequest) — เรียก Workers AI (`@cf/qwen/qwen3.8-27b`, โมเดลเดียวกับ chat) **1 ครั้ง** ให้แต่งเป็นภาษาไทยธรรมชาติจากข้อมูลจริงเท่านั้น ห้ามเดาตัวเลข
+  - **Cache 30 นาทีใน KV** (ไม่ใช่ cron ใหม่) — "ตอนเปิดหน้า" ไม่ได้แปลว่าเรียก AI ทุกครั้งที่มีคนเข้า สร้างใหม่แบบ lazy ตอน cache หมดอายุ ปุ่ม "รีเฟรชสรุป" บังคับสร้างใหม่ได้แต่มี **cooldown 60 วิ ที่ shared กันทุกคน** กัน spam (เพราะ route นี้ public ไม่มี auth เหมือนหน้า Dashboard อื่น)
+  - Gold/stock ส่วนไหนไม่มีข้อมูลพอ (เช่น ยังไม่มี TWELVEDATA_API_KEY หรือไม่มีหุ้นที่มีสัญญาณตอนนั้น) โชว์ `pending-badge` เดิมของแอป ไม่ใช่ error, ไม่เคยแต่งข้อมูลลอยๆ
+  - **⚠️ เจอบั๊กจริงระหว่างทดสอบ**: ตอนแรก map ทั้ง `gainer` และ `loser` signal ไปเป็น tag "gainer" (สีเขียว) เหมือนกัน — ผลคือหุ้นที่ร่วง -3% ขึ้น badge สีเขียวเหมือนหุ้นที่พุ่งขึ้น (สื่อความหมายผิดทาง) แก้โดยเพิ่ม tag "loser" แยก (สีแดง) ทดสอบซ้ำแล้วหุ้นลบเปลี่ยนแปลงขึ้น badge สีแดงถูกต้อง — และปรับ prompt เพราะรอบแรกโมเดลตอบแบบ data-dump ตรงๆ ("สัญญาณ gainer") ไม่เป็นธรรมชาติ ปรับ system prompt ให้เขียนแบบนักเทรดคุยกับเพื่อน ผลลัพธ์เป็นธรรมชาติขึ้นชัดเจน
+  - Design ไว้เป็น engine เดียวกับที่คิดว่าจะใช้ต่อกับ "สรุปประจำวันใน AI Chat" (ดูข้อเสนอ feature ด้านล่าง) — ยังไม่ได้ทำเวอร์ชัน chat จริง มีแค่ screen design
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
 - ⬜ Scalp Mode (poll ทุก 10-15 วิ) — ยังไม่เปิดใช้ จนกว่าจะเช็ค quota ฟรีของ Twelve Data ว่าพอจริงไหม
 
@@ -111,6 +117,7 @@ src/
     stock.ts         GET /api/price/stock(/:symbol), /api/sr/stock/:symbol — หุ้นไทย
     screener.ts      GET /api/screener/stock
     chat.ts          POST /api/admin/chat (SSE), GET /api/admin/chat/usage (both protected)
+    dashboard-summary.ts  GET /api/dashboard-summary — AI gold+stock digest for the Dashboard card (public)
   lib/
     twelvedata.ts    Twelve Data API client (ทอง)
     yahoo-finance.ts Yahoo Finance unofficial client (หุ้นไทย, .BK) — ดู caveat ในไฟล์
@@ -129,6 +136,7 @@ src/
     chat-tools.ts    Tool definitions (OpenAI-style) + executor — read-only, calls the same lib fns as the REST routes
     chat-usage.ts    Token usage logging + summary (chat_usage table) — no $ estimate, see M7 notes above
     chat-history.ts  Persist chat_messages (D1) — save/get/clear, ใช้โดย routes/chat.ts
+    dashboard-summary.ts  สร้าง digest จริง (ราคา+ข่าวทอง, screener หุ้น) แล้วเรียก Workers AI 1 ครั้งแต่งข้อความ, cache 30 นาทีใน KV
 public/
   sidebar.js         Sidebar เมนู (mount ทุกหน้าผ่าน #sidebar-mount)
   index.html/js      ทอง Dashboard
