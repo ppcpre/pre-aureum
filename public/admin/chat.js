@@ -17,6 +17,9 @@ const AI_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 
 const GREETING = "สวัสดีครับ ถามเรื่องราคาทอง แนวรับ-แนวต้าน หรือข่าวได้เลย — ผมจะเช็คข้อมูลจริงจากระบบก่อนตอบ";
 
+const SENTIMENT_LABEL = { bull: "โทนข่าว: ขาขึ้น", bear: "โทนข่าว: ขาลง", neutral: "โทนข่าว: เป็นกลาง" };
+const TAG_LABEL = { resistance: "ทะลุแนวต้าน", support: "ใกล้แนวรับ", gainer: "พุ่งแรง", loser: "ร่วงแรง" };
+
 function addMessage(role, text) {
   const row = document.createElement("div");
   row.className = `msg-row ${role}`;
@@ -77,6 +80,100 @@ function createThinkingCard() {
   };
 }
 
+/**
+ * Renders the AI's daily digest (gold + interesting Thai stocks) as the
+ * opening message of a fresh conversation — reuses the same
+ * /api/dashboard-summary the Dashboard card already calls, so there's no
+ * separate digest engine to keep in sync. Purely a display concern: this
+ * card is never pushed into `history`, so it never reaches the model as
+ * conversation context.
+ */
+function renderDigestCard(data) {
+  const row = document.createElement("div");
+  row.className = "msg-row assistant";
+
+  const ts = new Date(data.generatedAt * 1000);
+  const dateStr = ts.toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "short" });
+  const timeStr = ts.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+
+  const goldHtml = data.gold.available
+    ? `<p class="digest-sub">${data.gold.narrative}</p>`
+    : `<p class="digest-sub pending">${data.gold.reason}</p>`;
+
+  const stocksHtml =
+    data.stocks.length > 0
+      ? `
+        <div class="digest-section-title">หุ้นไทยที่น่าสนใจ</div>
+        <div class="digest-list">
+          ${data.stocks
+            .map(
+              (s) => `
+            <div class="digest-row">
+              <span class="sym mono">${s.symbol}</span>
+              <span class="note">${s.note}</span>
+              <span class="tag ${s.tag}">${TAG_LABEL[s.tag] ?? s.tag}</span>
+            </div>`
+            )
+            .join("")}
+        </div>`
+      : "";
+
+  const chipDefs = [
+    ...data.stocks.slice(0, 2).map((s) => ({ label: `ขยายความเรื่อง ${s.symbol}`, prompt: `ขยายความเรื่อง ${s.symbol} หน่อย` })),
+    ...(data.gold.available ? [{ label: "แนวรับ-ต้านทองตอนนี้", prompt: "แนวรับ-แนวต้านทองตอนนี้เท่าไหร่" }] : []),
+  ];
+  const chipsHtml =
+    chipDefs.length > 0
+      ? `<div class="digest-chips">${chipDefs.map((c) => `<span class="digest-chip" data-prompt="${c.prompt}">${c.label}</span>`).join("")}</div>`
+      : "";
+
+  row.innerHTML = `
+    <span class="ai-avatar">${AI_ICON_SVG}</span>
+    <div class="digest-card">
+      <div class="digest-head"><strong>สรุปประจำวัน</strong><span>${dateStr} · ${timeStr}</span></div>
+      ${goldHtml}
+      ${stocksHtml}
+      ${chipsHtml}
+    </div>`;
+
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  row.querySelectorAll(".digest-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      if (sending) return;
+      inputEl.value = chip.dataset.prompt;
+      send();
+    });
+  });
+}
+
+/**
+ * Shows the daily digest if there's real data to show; falls back to the
+ * plain greeting otherwise. On a cache miss /api/dashboard-summary makes a
+ * real Workers AI call and can take 15-20s — show the same "thinking" card
+ * used for live chat replies instead of leaving the page blank while it loads.
+ */
+async function showOpeningMessage() {
+  const loading = createThinkingCard();
+  loading.setLabel("กำลังเตรียมสรุปประจำวัน…");
+  try {
+    const res = await fetch("/api/dashboard-summary");
+    if (res.ok) {
+      const data = await res.json();
+      if (data.gold?.available || (data.stocks && data.stocks.length > 0)) {
+        loading.finish();
+        renderDigestCard(data);
+        return;
+      }
+    }
+  } catch {
+    // fall through to the plain greeting below
+  }
+  loading.finish();
+  addMessage("assistant", GREETING);
+}
+
 async function loadHistory() {
   try {
     const res = await fetch("/api/admin/chat/history");
@@ -84,14 +181,14 @@ async function loadHistory() {
     const data = await res.json();
 
     if (!data.messages || data.messages.length === 0) {
-      addMessage("assistant", GREETING);
+      await showOpeningMessage();
       return;
     }
 
     history = data.messages.map((m) => ({ role: m.role, content: m.content }));
     for (const m of data.messages) addMessage(m.role, m.content);
   } catch {
-    addMessage("assistant", GREETING);
+    await showOpeningMessage();
   }
 }
 
@@ -186,7 +283,7 @@ clearBtn.addEventListener("click", async () => {
   }
   history = [];
   messagesEl.innerHTML = "";
-  addMessage("assistant", GREETING);
+  await showOpeningMessage();
   clearBtn.disabled = false;
 });
 
