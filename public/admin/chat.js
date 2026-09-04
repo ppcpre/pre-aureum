@@ -312,7 +312,16 @@ usageToggle.addEventListener("click", () => {
   if (usagePanel.classList.contains("open")) loadUsage();
 });
 
-guardAdminAuth().then((ok) => {
-  if (ok) loadHistory();
+guardAdminAuth().then(async (ok) => {
+  if (!ok) return;
+  await loadHistory();
+
+  // Deep link from the Dashboard card's chips (/admin/chat?q=...) — ask it right away.
+  const q = new URLSearchParams(window.location.search).get("q");
+  if (q) {
+    window.history.replaceState({}, "", window.location.pathname); // don't re-send on reload
+    inputEl.value = q;
+    send();
+  }
 });
 inputEl.focus();

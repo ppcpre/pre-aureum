@@ -41,20 +41,16 @@
                 <circle cx="12" cy="3" r="1.2" fill="oklch(0.75 0.14 85)"/>
               </svg>
             </span>
-            <h2>สรุปประจำวันจาก AI</h2>
+            <h2>สรุปประจำวัน</h2>
             <span class="ai-summary-ts mono" id="ai-summary-ts"></span>
             <button class="ai-refresh" id="ai-summary-refresh" aria-label="รีเฟรชสรุป">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11A8 8 0 1 0 18.6 16 M20 5v6h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <div class="ai-summary-body" id="ai-summary-body">กำลังโหลด…</div>
-          <div class="ai-summary-foot" id="ai-summary-foot" style="display:none;">
-            <span class="ai-caveat">สรุปโดย AI จากข่าวและราคาล่าสุดในระบบ ณ เวลาที่แสดง — ไม่ใช่คำแนะนำการลงทุน โปรดตรวจสอบก่อนตัดสินใจ</span>
-            <span class="ai-summary-links">
-              <a href="/news">ดูข่าวทั้งหมด →</a>
-              <a href="/screener">ดู Screener →</a>
-            </span>
-          </div>
+          <p class="digest-sub" id="ai-summary-sub">กำลังโหลด…</p>
+          <div class="digest-stats" id="ai-summary-stats"></div>
+          <div id="ai-summary-stocks"></div>
+          <div class="digest-chips" id="ai-summary-chips"></div>
         </section>
 
         <section class="chart-card card">
@@ -76,6 +72,7 @@
   </div>
 
   <script src="/sidebar.js"></script>
+  <script src="/chat-fab.js"></script>
   <script src="/candlestick-chart.js"></script>
   <script src="/app.js"></script>
 </body>

@@ -4,6 +4,7 @@ import { fetchLatestPrice } from "./twelvedata";
 import { getCandles, getPreviousDayCandle } from "./candles-db";
 import { buildSRLevels, pickNearestLevels } from "./sr-engine";
 import { buildScreener, type ScreenerRow } from "./screener";
+import { STOCK_WATCHLIST } from "./stock-symbols";
 
 // Same model as the admin chat — chosen for Thai-language quality (see chat.ts).
 const MODEL = "@cf/qwen/qwen3.8-27b";
@@ -27,6 +28,12 @@ export interface DashboardSummary {
   generatedAt: number;
   gold: { available: true; sentiment: "bull" | "bear" | "neutral"; narrative: string } | { available: false; reason: string };
   stocks: { symbol: string; name: string; note: string; tag: "resistance" | "support" | "gainer" | "loser" }[];
+  stats: {
+    goldChangePct: number | null; // null = gold data not available yet
+    stockSignalCount: number; // ALL flagged stocks, not just the top N shown in `stocks`
+    stockWatchlistSize: number;
+    newsCount24h: number;
+  };
 }
 
 export async function getDashboardSummary(env: Env, forceRefresh = false): Promise<DashboardSummary> {
@@ -51,6 +58,7 @@ export async function getDashboardSummary(env: Env, forceRefresh = false): Promi
 
 interface GoldContext {
   price: number;
+  changePct: number | null; // vs the last completed daily candle — null if there's no prior candle yet
   levels: { price: number; type: string; methods: string[] }[];
   news: { title: string; sentiment: string | null; impact: string | null }[];
 }
@@ -61,15 +69,24 @@ async function buildGoldContext(env: Env): Promise<GoldContext | null> {
     const candles = await getCandles(env.DB, GOLD_SYMBOL, "H4", 150);
     const previousDayCandle = await getPreviousDayCandle(env, GOLD_SYMBOL);
     const levels = candles.length > 0 ? pickNearestLevels(buildSRLevels(candles, previousDayCandle, price), price) : [];
+    const changePct = previousDayCandle ? ((price - previousDayCandle.close) / previousDayCandle.close) * 100 : null;
 
     const { results: newsRows } = await env.DB.prepare(
       `SELECT title, sentiment, impact FROM news WHERE asset_tag = 'gold' ORDER BY published_at DESC LIMIT 5`
     ).all<{ title: string; sentiment: string | null; impact: string | null }>();
 
-    return { price, levels, news: newsRows ?? [] };
+    return { price, changePct, levels, news: newsRows ?? [] };
   } catch {
     return null; // Twelve Data not configured yet, or upstream failed — gold section shows "pending", not a fabricated number.
   }
+}
+
+async function countRecentGoldNews(env: Env, sinceSeconds: number): Promise<number> {
+  const cutoff = Math.floor(Date.now() / 1000) - sinceSeconds;
+  const row = await env.DB.prepare(`SELECT COUNT(*) AS c FROM news WHERE asset_tag = 'gold' AND published_at >= ?`)
+    .bind(cutoff)
+    .first<{ c: number }>();
+  return row?.c ?? 0;
 }
 
 interface ModelOutput {
@@ -152,18 +169,25 @@ async function generateDashboardSummary(env: Env): Promise<DashboardSummary> {
   const gold = await buildGoldContext(env);
 
   const screenerRows = await buildScreener(env);
-  const flaggedStocks = screenerRows
-    .filter((r) => r.signal !== "normal")
-    .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
-    .slice(0, 5);
+  const allFlagged = screenerRows.filter((r) => r.signal !== "normal");
+  const flaggedStocks = [...allFlagged].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct)).slice(0, 5);
+
+  const newsCount24h = await countRecentGoldNews(env, 24 * 60 * 60);
 
   const generatedAt = Math.floor(Date.now() / 1000);
+  const stats: DashboardSummary["stats"] = {
+    goldChangePct: gold?.changePct ?? null,
+    stockSignalCount: allFlagged.length,
+    stockWatchlistSize: STOCK_WATCHLIST.length,
+    newsCount24h,
+  };
 
   if (!gold && flaggedStocks.length === 0) {
     return {
       generatedAt,
       gold: { available: false, reason: "รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)" },
       stocks: [],
+      stats,
     };
   }
 
@@ -184,5 +208,5 @@ async function generateDashboardSummary(env: Env): Promise<DashboardSummary> {
     tag: signalTag(row.signal),
   }));
 
-  return { generatedAt, gold: goldSection, stocks };
+  return { generatedAt, gold: goldSection, stocks, stats };
 }

@@ -47,6 +47,8 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - ผลคือหลัง deploy ใหม่ **หุ้น 46 ตัวที่เพิ่มมาจะยังไม่ขึ้นใน Screener ทันที** ต้องรอ cron หมุนไปถึงภายในไม่กี่ชั่วโมง (4 ตัวเดิมที่มีข้อมูลอยู่แล้วขึ้นปกติ)
   - **⚠️ เจอบั๊กจริงอีกรอบ (2026-09-04)**: Cloudflare ส่งอีเมลเตือน **D1 `rows_written` แตะ 93% ของโควตาฟรี 100,000 rows/วัน** — สาเหตุคือ `pollStockPrices` เขียนทับ candle ย้อนหลัง**ทั้งช่วง 6 เดือน** (~126 แท่ง) ต่อหุ้น **ทุกครั้ง**ที่ cron รัน ทั้งที่มีแค่แท่งล่าสุด 1-2 แท่งที่เปลี่ยนจริง (15 หุ้น/รอบ × ~126 แท่ง × 24 รอบ/วัน ≈ 45,000+ rows/วัน จากจุดเดียว) — free plan ไม่มีบิลเกิน แค่ D1 write จะ error ชั่วคราวถ้าชนแคปจนกว่าจะ reset เที่ยงคืน UTC
   - แก้โดย: `pollStockPrices` เขียนเฉพาะ **3 แท่งล่าสุด** ต่อรอบแทนทั้ง 126 แท่ง (`candles.slice(-3)`) ลด rows_written ของ cron นี้ลง ~97% (จาก ~45k เหลือ ~1k/วัน) — ประวัติเต็มช่วงยังคง backfill ครั้งเดียวผ่าน lazy-load เดิมใน `routes/stock.ts` ตอนมีคนเปิดดูหุ้นตัวนั้นครั้งแรก (ที่จุดนั้นเขียนเต็มช่วงแค่ครั้งเดียว ไม่ใช่ปัญหาซ้ำ)
+  - **Redesign การ์ดบน Dashboard (2026-09-04)**: ตามที่ขอ — เปลี่ยนจาก layout 2 คอลัมน์เดิมเป็น layout เดียวกับการ์ด digest ของ AI Chat: 3 stat tiles จริง (% ทอง 24 ชม., จำนวนหุ้นที่มีสัญญาณ/ทั้งหมด 50, จำนวนข่าวใหม่ใน 24 ชม. — คำนวณจริงจาก D1 ทั้งหมด ไม่มีตัวไหน hardcode) ตามด้วยรายการหุ้นและปุ่ม quick-action ที่เป็น **ลิงก์ไปหน้า AI Chat พร้อม prefill คำถาม** (`/admin/chat?q=...`) — `chat.js` อ่าน `?q=` ตอนโหลด, ใส่ในกล่องข้อความ, ส่งอัตโนมัติ, แล้วลบ query param ออกจาก URL กันส่งซ้ำตอน reload — ทดสอบ flow เต็ม (กด chip บน Dashboard → เข้าหน้าแชท → ถามอัตโนมัติ → ได้คำตอบจริงจาก tool-use loop เดิม) ผ่านแล้วบน production
+  - เพิ่ม **floating chat icon** (`public/chat-fab.js`, มุมขวาล่าง) ลิงก์ตรงไปหน้า `/admin/chat` — ตอนนี้ใส่ไว้เฉพาะหน้า Dashboard ทอง (`index.html`) ยังไม่ได้ใส่ทุกหน้า
 - ✅ **AI Dashboard summary card** (`GET /api/dashboard-summary`) — การ์ดสรุปข่าวทอง + หุ้นไทยที่น่าสนใจ โผล่บน Dashboard ทองทันทีที่เปิดหน้า (`lib/dashboard-summary.ts`)
   - ดึงข้อมูลจริงล้วน: ราคา+แนวรับ-ต้านทอง (ถ้ามี), ข่าวทองล่าสุด 5 ชิ้นจาก D1, สัญญาณหุ้นไทยจาก **screener engine เดิม** (`buildScreener` ที่มีอยู่แล้ว, D1-only, ไม่เพิ่ม subrequest) — เรียก Workers AI (`@cf/qwen/qwen3.8-27b`, โมเดลเดียวกับ chat) **1 ครั้ง** ให้แต่งเป็นภาษาไทยธรรมชาติจากข้อมูลจริงเท่านั้น ห้ามเดาตัวเลข
   - **Cache 30 นาทีใน KV** (ไม่ใช่ cron ใหม่) — "ตอนเปิดหน้า" ไม่ได้แปลว่าเรียก AI ทุกครั้งที่มีคนเข้า สร้างใหม่แบบ lazy ตอน cache หมดอายุ ปุ่ม "รีเฟรชสรุป" บังคับสร้างใหม่ได้แต่มี **cooldown 60 วิ ที่ shared กันทุกคน** กัน spam (เพราะ route นี้ public ไม่มี auth เหมือนหน้า Dashboard อื่น)
@@ -142,6 +144,7 @@ src/
     dashboard-summary.ts  สร้าง digest จริง (ราคา+ข่าวทอง, screener หุ้น) แล้วเรียก Workers AI 1 ครั้งแต่งข้อความ, cache 30 นาทีใน KV
 public/
   sidebar.js         Sidebar เมนู (mount ทุกหน้าผ่าน #sidebar-mount)
+  chat-fab.js        Floating chat icon ลิงก์ไป /admin/chat (ตอนนี้ใส่แค่หน้า Dashboard ทอง)
   index.html/js      ทอง Dashboard
   news.html/js       ทอง ข่าว
   risk-calculator.*  ทอง คำนวณความเสี่ยง (client-side ล้วน)

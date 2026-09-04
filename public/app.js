@@ -5,68 +5,60 @@ const srListEl = document.getElementById("sr-list");
 const chartContainerEl = document.getElementById("chart-container");
 const tfButtons = document.querySelectorAll("#tf-tabs button");
 
-const aiSummaryBodyEl = document.getElementById("ai-summary-body");
-const aiSummaryFootEl = document.getElementById("ai-summary-foot");
+const aiSummarySubEl = document.getElementById("ai-summary-sub");
+const aiSummaryStatsEl = document.getElementById("ai-summary-stats");
+const aiSummaryStocksEl = document.getElementById("ai-summary-stocks");
+const aiSummaryChipsEl = document.getElementById("ai-summary-chips");
 const aiSummaryTsEl = document.getElementById("ai-summary-ts");
 const aiSummaryRefreshEl = document.getElementById("ai-summary-refresh");
 
-const SENTIMENT_LABEL = { bull: "โทนข่าว: ขาขึ้น", bear: "โทนข่าว: ขาลง", neutral: "โทนข่าว: เป็นกลาง" };
-const SENTIMENT_ARROW = {
-  bull: `<path d="M4 17 L11 10 L15 14 L20 6" stroke-linecap="round" stroke-linejoin="round"/>`,
-  bear: `<path d="M4 7 L11 14 L15 10 L20 18" stroke-linecap="round" stroke-linejoin="round"/>`,
-  neutral: `<path d="M4 12 H20" stroke-linecap="round"/>`,
-};
 const TAG_LABEL = { resistance: "ทะลุแนวต้าน", support: "ใกล้แนวรับ", gainer: "พุ่งแรง", loser: "ร่วงแรง" };
 
-function renderAiSummary(data) {
-  const parts = [];
+function chatLink(prompt) {
+  return `/admin/chat?q=${encodeURIComponent(prompt)}`;
+}
 
-  if (data.gold.available) {
-    parts.push(`
-      <div>
-        <div class="ai-col-title">ทอง · XAU/USD</div>
-        <span class="sentiment-pill ${data.gold.sentiment}">
-          <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">${SENTIMENT_ARROW[data.gold.sentiment]}</svg>
-          ${SENTIMENT_LABEL[data.gold.sentiment]}
-        </span>
-        <p class="ai-narrative">${data.gold.narrative}</p>
-      </div>`);
-  } else {
-    parts.push(`
-      <div>
-        <div class="ai-col-title">ทอง · XAU/USD</div>
-        ${pendingBadge(data.gold.reason)}
-      </div>`);
-  }
+function renderAiSummary(data) {
+  aiSummarySubEl.className = data.gold.available ? "digest-sub" : "digest-sub pending";
+  aiSummarySubEl.innerHTML = data.gold.available ? data.gold.narrative : pendingBadge(data.gold.reason);
+
+  const { goldChangePct, stockSignalCount, stockWatchlistSize, newsCount24h } = data.stats;
+  const goldValueClass = goldChangePct === null ? "" : goldChangePct >= 0 ? "bull" : "bear";
+  const goldValueText = goldChangePct === null ? "—" : `${goldChangePct >= 0 ? "+" : ""}${goldChangePct.toFixed(2)}%`;
+  aiSummaryStatsEl.innerHTML = `
+    <div class="digest-stat"><div class="n ${goldValueClass}">${goldValueText}</div><div class="l">ทอง 24 ชม.</div></div>
+    <div class="digest-stat"><div class="n">${stockSignalCount} / ${stockWatchlistSize}</div><div class="l">หุ้นที่มีสัญญาณ</div></div>
+    <div class="digest-stat"><div class="n">${newsCount24h}</div><div class="l">ข่าวใหม่ 24 ชม.</div></div>`;
 
   if (data.stocks.length > 0) {
-    parts.push(`
-      <div>
-        <div class="ai-col-title">หุ้นไทยที่น่าสนใจ</div>
-        <div class="stock-pick-list">
-          ${data.stocks
-            .map(
-              (s) => `
-            <div class="stock-pick">
-              <span class="sym mono">${s.symbol}</span>
-              <span class="reason">${s.note}</span>
-              <span class="tag ${s.tag}">${TAG_LABEL[s.tag]}</span>
-            </div>`
-            )
-            .join("")}
-        </div>
-      </div>`);
+    aiSummaryStocksEl.innerHTML = `
+      <div class="digest-section-title">หุ้นที่น่าจับตา</div>
+      <div class="digest-list">
+        ${data.stocks
+          .map(
+            (s) => `
+          <div class="digest-row">
+            <span class="sym mono">${s.symbol}</span>
+            <span class="note">${s.note}</span>
+            <span class="tag ${s.tag}">${TAG_LABEL[s.tag]}</span>
+          </div>`
+          )
+          .join("")}
+      </div>`;
   } else {
-    parts.push(`
-      <div>
-        <div class="ai-col-title">หุ้นไทยที่น่าสนใจ</div>
-        ${pendingBadge("ยังไม่มีหุ้นที่มีสัญญาณเด่นตอนนี้")}
-      </div>`);
+    aiSummaryStocksEl.innerHTML = `<div class="digest-section-title">หุ้นที่น่าจับตา</div>${pendingBadge("ยังไม่มีหุ้นที่มีสัญญาณเด่นตอนนี้")}`;
   }
 
-  aiSummaryBodyEl.innerHTML = parts.join("");
-  aiSummaryFootEl.style.display = data.gold.available || data.stocks.length > 0 ? "flex" : "none";
-  aiSummaryTsEl.textContent = `อัปเดต ${new Date(data.generatedAt * 1000).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}`;
+  const chipDefs = [
+    ...data.stocks.slice(0, 2).map((s) => ({ label: `ขยายความเรื่อง ${s.symbol}`, prompt: `ขยายความเรื่อง ${s.symbol} หน่อย` })),
+    ...(data.gold.available ? [{ label: "แนวรับ-ต้านทองตอนนี้", prompt: "แนวรับ-แนวต้านทองตอนนี้เท่าไหร่" }] : []),
+    { label: "ข่าวล่าสุดมีอะไรบ้าง", prompt: "ข่าวทองล่าสุดมีอะไรบ้าง" },
+  ];
+  aiSummaryChipsEl.innerHTML = chipDefs
+    .map((c) => `<a class="digest-chip" href="${chatLink(c.prompt)}">${c.label}</a>`)
+    .join("");
+
+  aiSummaryTsEl.textContent = new Date(data.generatedAt * 1000).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
 }
 
 async function loadAiSummary(forceRefresh = false) {
@@ -76,8 +68,11 @@ async function loadAiSummary(forceRefresh = false) {
     const data = await res.json();
     renderAiSummary(data);
   } catch {
-    aiSummaryBodyEl.innerHTML = pendingBadge("โหลดสรุปจาก AI ไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
-    aiSummaryFootEl.style.display = "none";
+    aiSummarySubEl.className = "digest-sub pending";
+    aiSummarySubEl.innerHTML = pendingBadge("โหลดสรุปจาก AI ไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
+    aiSummaryStatsEl.innerHTML = "";
+    aiSummaryStocksEl.innerHTML = "";
+    aiSummaryChipsEl.innerHTML = "";
   }
 }
 

@@ -160,31 +160,41 @@ main {
 .ai-refresh svg.spinning { animation: ai-spin 0.8s linear infinite; }
 @keyframes ai-spin { to { transform: rotate(360deg); } }
 
-.ai-summary-body { display: grid; grid-template-columns: 1fr 280px; gap: 22px; }
-.ai-col-title { font-size: 11px; font-weight: 700; color: oklch(0.55 0.01 250); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 9px; }
-.ai-narrative { font-size: 13.5px; line-height: 1.75; color: oklch(0.86 0.005 250); margin: 0; }
-.sentiment-pill {
-  display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 700;
-  padding: 3px 10px 3px 8px; border-radius: 20px; margin-bottom: 11px;
-}
-.sentiment-pill.bull { color: oklch(0.72 0.15 150); background: oklch(0.72 0.15 150 / 0.14); }
-.sentiment-pill.bear { color: oklch(0.65 0.18 25); background: oklch(0.65 0.18 25 / 0.14); }
-.sentiment-pill.neutral { color: oklch(0.78 0.15 70); background: oklch(0.78 0.15 70 / 0.14); }
-.sentiment-pill .arrow { width: 9px; height: 9px; }
+/* Digest content — shared shape with the AI Chat opening card (admin/chat.js), same data source */
+.digest-sub { font-size: 13px; line-height: 1.7; color: oklch(0.86 0.005 250); margin: 0 0 16px; }
+.digest-sub.pending { color: oklch(0.60 0.01 250); }
 
-.stock-pick-list { display: flex; flex-direction: column; gap: 8px; }
-.stock-pick { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; background: oklch(0.22 0.007 250); }
-.stock-pick .sym { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-weight: 700; font-size: 12.5px; width: 46px; flex-shrink: 0; }
-.stock-pick .reason { font-size: 12px; color: oklch(0.60 0.01 250); flex: 1; line-height: 1.4; }
+.digest-stats { display: flex; gap: 10px; margin-bottom: 18px; }
+.digest-stat { flex: 1; background: oklch(0.22 0.007 250); border-radius: 8px; padding: 12px 14px; }
+.digest-stat .n { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 19px; font-weight: 700; }
+.digest-stat .n.bull { color: oklch(0.72 0.15 150); }
+.digest-stat .n.bear { color: oklch(0.65 0.18 25); }
+.digest-stat .l { font-size: 11px; color: oklch(0.55 0.01 250); margin-top: 3px; }
 
-.ai-summary-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin-top: 16px; padding-top: 14px; border-top: 1px solid oklch(0.29 0.008 250);
+.digest-section-title { font-size: 11px; font-weight: 700; color: oklch(0.55 0.01 250); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 9px; }
+.digest-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.digest-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: oklch(0.22 0.007 250); font-size: 13px; }
+.digest-row .sym { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-weight: 700; width: 56px; flex-shrink: 0; }
+.digest-row .note { color: oklch(0.60 0.01 250); flex: 1; }
+
+.digest-chips { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 15px; border-top: 1px solid oklch(0.29 0.008 250); }
+.digest-chip {
+  font-size: 12.5px; font-weight: 600; color: oklch(0.75 0.14 85); background: oklch(0.75 0.14 85 / 0.1);
+  border: 1px solid oklch(0.75 0.14 85 / 0.28); padding: 7px 13px; border-radius: 20px; cursor: pointer;
+  text-decoration: none; display: inline-flex;
 }
-.ai-caveat { font-size: 11px; color: oklch(0.55 0.01 250); line-height: 1.6; }
-.ai-summary-links { display: flex; gap: 14px; flex-shrink: 0; }
-.ai-summary-links a { font-size: 12px; font-weight: 700; color: oklch(0.75 0.14 85); text-decoration: none; white-space: nowrap; }
+.digest-chip:hover { background: oklch(0.75 0.14 85 / 0.18); }
 
 @media (max-width: 900px) {
-  .ai-summary-body { grid-template-columns: 1fr; }
+  .digest-stats { flex-direction: column; }
 }
+
+/* Floating "AI Chat" shortcut — see chat-fab.js */
+.chat-fab {
+  position: fixed; bottom: 24px; right: 24px; width: 52px; height: 52px; border-radius: 50%;
+  background: oklch(0.75 0.14 85); color: oklch(0.16 0.02 85);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 0 oklch(1 0 0 / 12%) inset, 0 10px 24px -10px oklch(0 0 0 / 60%);
+  text-decoration: none; z-index: 40; transition: transform 0.15s ease;
+}
+.chat-fab:hover { transform: scale(1.06); }
