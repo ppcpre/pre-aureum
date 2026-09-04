@@ -11,7 +11,6 @@
     "db:migrate:remote": "wrangler d1 execute aureum-db --remote --file ./schema.sql"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
     "fast-xml-parser": "^4.5.0",
     "hono": "^4.6.0"
   },

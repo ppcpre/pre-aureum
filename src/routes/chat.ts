@@ -2,13 +2,14 @@ import { Hono } from "hono";
 import type { Env } from "../types";
 import { requireAdmin } from "../lib/auth";
 import { runChat, type ChatMessage } from "../lib/chat";
-import { getRecentUsage, getUsageSummary } from "../lib/chat-usage";
+import { getUsageSummary } from "../lib/chat-usage";
 
 export const chatRoute = new Hono<{ Bindings: Env }>();
 
-// Soft safety net (separate from the per-response max_tokens cost cap) —
-// caps total messages/day even for the admin, in case of a client bug that
-// loops requests. Not a hard spend cap, just a sane ceiling.
+// Soft safety net — caps total messages/day even for the admin, in case of a
+// client bug that loops requests. Workers AI's free allocation (10,000
+// Neurons/day) is shared across every model on the whole Cloudflare account,
+// so a runaway loop here could also starve the news-sentiment feature.
 const DAILY_MESSAGE_LIMIT = 200;
 
 async function checkAndIncrementDailyQuota(env: Env): Promise<boolean> {
@@ -38,7 +39,7 @@ chatRoute.post("/", requireAdmin, async (c) => {
       encoder.encode(
         `data: ${JSON.stringify({
           type: "error",
-          message: "ถึงขีดจำกัดข้อความต่อวันแล้ว (ป้องกันค่าใช้จ่ายบานปลาย) ลองใหม่พรุ่งนี้",
+          message: "ถึงขีดจำกัดข้อความต่อวันแล้ว (กันโควตา Neurons ฟรีของ Cloudflare หมดจากบั๊ก) ลองใหม่พรุ่งนี้",
         })}\n\n`
       )
     );
@@ -57,8 +58,13 @@ chatRoute.post("/", requireAdmin, async (c) => {
   });
 });
 
-// GET /api/admin/chat/usage — token/cost dashboard data.
+// GET /api/admin/chat/usage — token usage + today's message quota.
+// No $ estimate: Workers AI bills in Neurons (free: 10,000/day, shared
+// across every model on the account), not a flat $/token rate we can
+// compute client-side — see lib/chat-usage.ts.
 chatRoute.get("/usage", requireAdmin, async (c) => {
-  const [summary, recent] = await Promise.all([getUsageSummary(c.env.DB), getRecentUsage(c.env.DB, 20)]);
-  return c.json({ ...summary, recent });
+  const dateKey = new Date().toISOString().slice(0, 10);
+  const messagesToday = Number((await c.env.CACHE.get(`chat:quota:${dateKey}`)) ?? "0");
+  const summary = await getUsageSummary(c.env.DB);
+  return c.json({ ...summary, messagesToday, dailyMessageLimit: DAILY_MESSAGE_LIMIT });
 });

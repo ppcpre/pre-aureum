@@ -26,13 +26,15 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - Screener มี filter จริง: พุ่งขึ้น/ลงแรง 24ชม., ใกล้แนวรับ, ทะลุแนวต้าน (breakout = ทำ high ใหม่ในรอบ 10 วัน)
   - แก้บั๊ก: แนวรับ-ต้านเดิม cluster ถี่เกินไปสำหรับหุ้นราคาต่ำ (tick size ใหญ่กว่า tolerance เดิม) ปรับ `tolerancePct` 0.15% → 0.3% และเพิ่ม `pickNearestLevels()` ตัดเหลือแนวใกล้ราคาที่สุดฝั่งละ 4 ระดับ (ใช้ทั้งทองและหุ้นไทย)
 
-- ✅ M7 — Admin AI Chat (`/admin/chat`) เชื่อม Claude จริง — **Sonnet 5** (เลือกเองตามที่คุยกันไว้ กระทบค่าใช้จ่ายโดยตรง อย่าเปลี่ยนโดยไม่ถาม)
-  - **Admin-only** เท่านั้น (ไม่ใช่ public — ตัดสินใจไว้เพราะ Claude API มีค่าใช้จ่ายจริงต่อ request)
-  - **Tool use / grounding**: Claude เรียก tool จริงของระบบก่อนตอบเสมอ (ราคาทอง, S/R ทอง, ราคาหุ้น, S/R หุ้น, ข่าวล่าสุด, screener) — ห้ามตอบราคาจาก training data ของตัวเอง ระบุไว้ใน system prompt ชัดเจน tool ทั้งหมดเป็น **read-only** ไม่มี tool ไหนสั่งเทรดหรือแก้ค่าอะไรได้
-  - **Streaming**: SSE ผ่าน `TransformStream` + `c.executionCtx.waitUntil()` — เห็นข้อความไหลทีละคำ ไม่ต้องรอทั้งก้อน พร้อมโชว์สถานะ "กำลังเช็ค..." ตอนเรียก tool (ความโปร่งใส ไม่ใช่กล่องดำ)
-  - **Usage/Cost dashboard** ในหน้าเดียวกัน (ปุ่ม "Usage" มุมขวาบน) — log ทุก request ลง D1 (`chat_usage`) คำนวณค่าใช้จ่ายประมาณการจาก token จริง โชว์ทั้งวันนี้/ทั้งหมด
-  - **Safety net**: จำกัด 200 ข้อความ/วัน (กัน bug ทำให้ยิง request รัว), `max_tokens` จำกัดไว้ที่ 4096 ต่อคำตอบ (ตั้งใจ cap ต้นทุน ไม่ใช่ default เต็มที่), จำกัด tool-loop สูงสุด 6 รอบ/ข้อความ
-  - **รอ ANTHROPIC_API_KEY** (ผู้ใช้จะใส่เอง ใช้ token ส่วนตัว) — ตอนนี้ error แบบ friendly ("รอเชื่อมต่อ Claude") ไม่ใช่หน้า error
+- ✅ M7 — Admin AI Chat (`/admin/chat`) — **เปลี่ยนมาใช้ Cloudflare Workers AI แทน Claude แล้ว** (ตามที่คุยกัน: ทดลองฟรีก่อน Claude API มีค่าใช้จ่ายจริงต่อ request ไม่รวมอยู่ใน Claude.ai subscription ที่จ่ายอยู่)
+  - **Model: `@cf/qwen/qwen3.8-27b`** — เลือกเพราะภาษาไทยดี (requirement จากคุณ) + รองรับ function calling — **ฟรีสนิท** อยู่ในโควตา 10,000 Neurons/วันของบัญชี Cloudflare ไม่ต้องสมัคร/จ่ายอะไรเพิ่ม (ไม่ต้องมี ANTHROPIC_API_KEY อีกต่อไป)
+  - **Admin-only** เท่านั้น (ตัดสินใจไว้ตั้งแต่ตอนคุยเรื่อง Claude และยังคงไว้)
+  - **Tool use / grounding**: เรียก tool จริงของระบบก่อนตอบเสมอ (ราคาทอง, S/R ทอง, ราคาหุ้น, S/R หุ้น, ข่าวล่าสุด, screener) tool ทั้งหมด **read-only** ไม่มี tool ไหนสั่งเทรดหรือแก้ค่าอะไรได้ — ทดสอบแล้ว chain หลาย tool ต่อกันได้ถูกต้อง (เช่น ถามหุ้น → เรียกราคา + S/R สองตัวติดกัน)
+  - **⚠️ เจอปัญหาจริงระหว่าง implement**: ลองใช้ `@cloudflare/ai-utils`'s `runWithTools` ก่อน (ตามตัวอย่างในเอกสาร Cloudflare) แต่โมเดลนี้คืนค่าแบบ **OpenAI Chat Completions shape** (`choices[0].message`) ไม่ใช่ shape แบบง่าย `{response, tool_calls}` ที่ `runWithTools`/เอกสารส่วนใหญ่ของ Cloudflare ใช้เป็นตัวอย่าง — ผลคือ tool ไม่ถูกส่งเข้าไปให้โมเดลเห็นเลย (เห็นจาก debug log จริง) แก้โดยเลิกใช้ `runWithTools` แล้วเรียก `env.AI.run()` ตรงๆ พร้อม tools แบบ OpenAI-style เอง เขียน loop เองทั้งหมด — ทดสอบซ้ำแล้วทำงานถูกต้อง
+  - Response เป็น**ก้อนเดียว ไม่ streaming ทีละคำ** (ต่างจากตอนใช้ Claude) เพราะไม่ได้ใช้ `runWithTools`'s `streamFinalResponse` (เพื่อให้ได้ `usage` ที่แม่นยำสำหรับ log แทน) — ยังคงเห็นสถานะ "กำลังเช็ค..." ระหว่างเรียก tool ผ่าน SSE เหมือนเดิม
+  - **Usage dashboard** (ปุ่ม "Usage" มุมขวาบน) — log token จริงลง D1 (`chat_usage`) โชว์ prompt/completion tokens วันนี้/ทั้งหมด **ไม่มีตัวเลข $ ประมาณการ** เพราะ Workers AI คิดราคาเป็น Neuron ไม่ใช่ $/token ตรงๆ (เลขจริงเช็คได้ที่ Cloudflare Dashboard)
+  - **Safety net**: จำกัด 200 ข้อความ/วัน (กันโควตา Neurons ฟรีของทั้งบัญชีหมดจาก bug), tool-loop จำกัดสูงสุด 4 รอบ/ข้อความ
+  - อยากสลับกลับไปใช้ Claude (คุณภาพสูงกว่า, เสียเงิน) — โค้ดเวอร์ชัน Claude/Sonnet 5 อยู่ใน git history (commit ก่อนหน้านี้) กู้กลับมาได้ถ้าต้องการ
 
 ## ยังไม่ทำ (ทำต่อได้ตามลำดับ)
 - ⬜ ขยาย watchlist หุ้นไทย + ค้นหาได้ทุก symbol ใน SET (ตอนนี้จำกัด 4 ตัว)
@@ -118,9 +120,9 @@ src/
     news-db.ts       D1 upsert สำหรับข่าว (dedupe ด้วย url)
     news-poll.ts     ฟังก์ชันดึงข่าวทุก source แล้วบันทึก
     auth.ts          Admin session (cookie + KV) + requireAdmin middleware
-    chat.ts          Claude streaming agentic loop (SSE relay + tool-use loop)
-    chat-tools.ts    Tool definitions + executor — read-only, calls the same lib fns as the REST routes
-    chat-usage.ts    Token/cost logging + summary (chat_usage table)
+    chat.ts          Workers AI (Qwen3.8-27B) manual tool-use loop, OpenAI Chat Completions shape — SSE relay
+    chat-tools.ts    Tool definitions (OpenAI-style) + executor — read-only, calls the same lib fns as the REST routes
+    chat-usage.ts    Token usage logging + summary (chat_usage table) — no $ estimate, see M7 notes above
 public/
   sidebar.js         Sidebar เมนู (mount ทุกหน้าผ่าน #sidebar-mount)
   index.html/js      ทอง Dashboard

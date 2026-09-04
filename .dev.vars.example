@@ -8,6 +8,8 @@ TWELVEDATA_API_KEY=your-twelvedata-api-key
 # For deployed environments use: wrangler secret put ADMIN_PASSWORD
 ADMIN_PASSWORD=change-me
 
-# Admin AI Chat (Claude). Costs real money per message — see README.
-# For deployed environments use: wrangler secret put ANTHROPIC_API_KEY
-ANTHROPIC_API_KEY=your-anthropic-api-key
+# Admin AI Chat (/admin/chat) runs on Cloudflare Workers AI (the `AI`
+# binding in wrangler.jsonc) — free within the account's daily Neuron
+# allocation, no separate API key needed. See README for why (cost) and
+# how to switch to Claude later if you want higher quality and are willing
+# to pay per message.

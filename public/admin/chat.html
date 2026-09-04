@@ -64,14 +64,17 @@
 
         <div id="usage-panel" class="card">
           <div class="usage-section-label">วันนี้</div>
-          <div class="usage-cost" id="usage-today-cost">$0.0000</div>
-          <div class="usage-row"><span class="muted">ข้อความ</span><span class="mono" id="usage-today-count">0</span></div>
-          <div class="usage-row"><span class="muted">Input tokens</span><span class="mono" id="usage-today-input">0</span></div>
-          <div class="usage-row"><span class="muted">Output tokens</span><span class="mono" id="usage-today-output">0</span></div>
+          <div class="usage-row"><span class="muted">ข้อความ</span><span class="mono" id="usage-today-count">0 / 200</span></div>
+          <div class="usage-row"><span class="muted">Prompt tokens</span><span class="mono" id="usage-today-input">0</span></div>
+          <div class="usage-row"><span class="muted">Completion tokens</span><span class="mono" id="usage-today-output">0</span></div>
 
           <div class="usage-section-label">ทั้งหมด</div>
-          <div class="usage-cost" id="usage-all-cost">$0.0000</div>
-          <div class="usage-row"><span class="muted">ข้อความ</span><span class="mono" id="usage-all-count">0</span></div>
+          <div class="usage-row"><span class="muted">จำนวนครั้งที่เรียก AI</span><span class="mono" id="usage-all-count">0</span></div>
+          <div class="usage-row"><span class="muted">Token รวม</span><span class="mono" id="usage-all-tokens">0</span></div>
+
+          <div class="muted" style="font-size:11px; margin-top:10px; line-height:1.6;">
+            ฟรีภายในโควตา 10,000 Neurons/วันของบัญชี Cloudflare (นับ Neuron ไม่ใช่ token ตรงๆ เช็คของจริงได้ที่ Cloudflare Dashboard)
+          </div>
         </div>
       </div>
 

@@ -84,8 +84,8 @@ async function send() {
           }
         } else if (event.type === "error") {
           if (toolIndicatorEl) toolIndicatorEl.remove();
-          const friendly = /api ?key|authentication/i.test(event.message)
-            ? "รอเชื่อมต่อ Claude — ยังไม่ได้ตั้งค่า ANTHROPIC_API_KEY"
+          const friendly = /neuron|quota|rate.?limit/i.test(event.message)
+            ? "ถึงโควตา Workers AI ฟรีของวันนี้แล้ว ลองใหม่พรุ่งนี้ (หรือรอสักครู่แล้วลองอีกครั้ง)"
             : event.message;
           addMessage("assistant", `⚠️ ${friendly}`);
         } else if (event.type === "done") {
@@ -121,12 +121,13 @@ async function loadUsage() {
   try {
     const res = await fetch("/api/admin/chat/usage");
     const data = await res.json();
-    document.getElementById("usage-today-cost").textContent = `$${data.today.estimatedCostUsd.toFixed(4)}`;
-    document.getElementById("usage-today-count").textContent = data.today.messageCount;
-    document.getElementById("usage-today-input").textContent = data.today.inputTokens.toLocaleString();
-    document.getElementById("usage-today-output").textContent = data.today.outputTokens.toLocaleString();
-    document.getElementById("usage-all-cost").textContent = `$${data.allTime.estimatedCostUsd.toFixed(4)}`;
+    document.getElementById("usage-today-count").textContent = `${data.messagesToday} / ${data.dailyMessageLimit}`;
+    document.getElementById("usage-today-input").textContent = data.today.promptTokens.toLocaleString();
+    document.getElementById("usage-today-output").textContent = data.today.completionTokens.toLocaleString();
     document.getElementById("usage-all-count").textContent = data.allTime.messageCount;
+    document.getElementById("usage-all-tokens").textContent = (
+      data.allTime.promptTokens + data.allTime.completionTokens
+    ).toLocaleString();
   } catch {
     // Silently ignore — usage panel is a nice-to-have, not core chat function.
   }
