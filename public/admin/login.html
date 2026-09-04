@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aureum Admin — เข้าสู่ระบบ</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  .login-card { width: 320px; }
+  .login-card input {
+    width: 100%; padding: 10px 12px; margin-top: 6px; margin-bottom: 16px;
+    background: oklch(0.14 0.006 250); border: 1px solid oklch(0.29 0.008 250);
+    border-radius: 7px; color: inherit; font-family: inherit; font-size: 14px;
+  }
+  .login-card button {
+    width: 100%; padding: 10px; border-radius: 7px; border: none;
+    background: oklch(0.75 0.14 85); color: oklch(0.16 0.02 85);
+    font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+  #error { color: oklch(0.65 0.18 25); font-size: 12.5px; margin-top: 10px; display: none; }
+</style>
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="card login-card">
+      <div class="label" style="margin-bottom:16px;">🔒 Aureum Admin</div>
+      <form id="login-form">
+        <label class="muted">รหัสผ่าน</label>
+        <input type="password" id="password" autocomplete="current-password" required>
+        <button type="submit">เข้าสู่ระบบ</button>
+      </form>
+      <div id="error">รหัสผ่านไม่ถูกต้อง</div>
+    </div>
+  </div>
+  <script src="/admin/login.js"></script>
+</body>
+</html>
