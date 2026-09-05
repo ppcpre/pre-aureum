@@ -1,8 +1,9 @@
-// Floating "AI Chat" button — links to /admin/chat. Included on public pages
-// (currently the gold Dashboard) as a persistent shortcut into the AI Chat,
-// mirroring how the sidebar already links to /admin/* without hiding it from
-// non-admin visitors (they just hit the login screen, same as clicking the
-// sidebar's Admin section today).
+// Floating "AI Chat" button — links to /admin/chat. Included on every page
+// except /admin/chat itself (redundant there) and /admin/login (transient
+// auth gate) as a persistent shortcut into the AI Chat, mirroring how the
+// sidebar already links to /admin/* without hiding it from non-admin
+// visitors (they just hit the login screen, same as clicking the sidebar's
+// Admin section today).
 (function () {
   const fab = document.createElement("a");
   fab.href = "/admin/chat";
