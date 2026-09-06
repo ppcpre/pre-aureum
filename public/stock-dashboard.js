@@ -15,6 +15,81 @@ function pendingBadge(message) {
   return `<span class="pending-badge"><span class="dot"></span>${message}</span>`;
 }
 
+// --- AI summary card (stocks only — gold's half lives on the ทอง Dashboard's
+// own card, see app.js). Both read the same /api/dashboard-summary so the
+// two cards stay in sync from one shared, cached digest.
+const aiSummaryStatsEl = document.getElementById("ai-summary-stats");
+const aiSummaryStocksEl = document.getElementById("ai-summary-stocks");
+const aiSummaryChipsEl = document.getElementById("ai-summary-chips");
+const aiSummaryTsEl = document.getElementById("ai-summary-ts");
+const aiSummaryRefreshEl = document.getElementById("ai-summary-refresh");
+const setMarketStatusEl = document.getElementById("set-market-status");
+
+const TAG_LABEL = { resistance: "ทะลุแนวต้าน", support: "ใกล้แนวรับ", gainer: "พุ่งแรง", loser: "ร่วงแรง" };
+
+function chatLink(prompt) {
+  return `/admin/chat?q=${encodeURIComponent(prompt)}`;
+}
+
+function renderStockSummary(data) {
+  applyMarketStatus(setMarketStatusEl, getSetMarketStatus());
+
+  const { stockSignalCount, stockWatchlistSize } = data.stats;
+  aiSummaryStatsEl.innerHTML = `
+    <div class="digest-stat"><div class="n">${stockSignalCount} / ${stockWatchlistSize}</div><div class="l">หุ้นที่มีสัญญาณ</div></div>`;
+
+  if (data.stocks.length > 0) {
+    // The card only ever lists the top N biggest movers (see dashboard-summary.ts) — the stat
+    // tile above shows the true total, and this link is how you reach the rest of them.
+    const moreCount = stockSignalCount - data.stocks.length;
+    aiSummaryStocksEl.innerHTML = `
+      <div class="digest-list">
+        ${data.stocks
+          .map(
+            (s) => `
+          <div class="digest-row">
+            <span class="sym mono">${s.symbol}</span>
+            <span class="note">${s.note}</span>
+            <span class="tag ${s.tag}">${TAG_LABEL[s.tag]}</span>
+          </div>`
+          )
+          .join("")}
+      </div>
+      ${moreCount > 0 ? `<a class="digest-more-link" href="/screener">ดูอีก ${moreCount} ตัวที่มีสัญญาณใน Screener →</a>` : ""}`;
+  } else {
+    aiSummaryStocksEl.innerHTML = pendingBadge("ยังไม่มีหุ้นที่มีสัญญาณเด่นตอนนี้");
+  }
+
+  const chipDefs = data.stocks.slice(0, 3).map((s) => ({ label: `ขยายความเรื่อง ${s.symbol}`, prompt: `ขยายความเรื่อง ${s.symbol} หน่อย` }));
+  aiSummaryChipsEl.innerHTML = chipDefs.map((c) => `<a class="digest-chip" href="${chatLink(c.prompt)}">${c.label}</a>`).join("");
+
+  aiSummaryTsEl.textContent = new Date(data.generatedAt * 1000).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+}
+
+async function loadStockSummary(forceRefresh = false) {
+  try {
+    const res = await fetch(`/api/dashboard-summary${forceRefresh ? "?refresh=1" : ""}`);
+    if (!res.ok) throw new Error("failed");
+    renderStockSummary(await res.json());
+  } catch {
+    aiSummaryStocksEl.innerHTML = pendingBadge("โหลดสรุปจาก AI ไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
+    aiSummaryStatsEl.innerHTML = "";
+    aiSummaryChipsEl.innerHTML = "";
+  }
+}
+
+aiSummaryRefreshEl.addEventListener("click", () => {
+  const svg = aiSummaryRefreshEl.querySelector("svg");
+  svg.classList.add("spinning");
+  aiSummaryRefreshEl.disabled = true;
+  loadStockSummary(true).finally(() => {
+    svg.classList.remove("spinning");
+    aiSummaryRefreshEl.disabled = false;
+  });
+});
+
+loadStockSummary();
+
 function renderSRList(levels) {
   if (!levels || levels.length === 0) {
     srListEl.innerHTML = pendingBadge("ยังไม่มีแนวรับ-แนวต้าน (ข้อมูลย้อนหลังยังน้อยเกินไป)");

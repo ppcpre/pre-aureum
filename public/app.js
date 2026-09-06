@@ -7,54 +7,32 @@ const tfButtons = document.querySelectorAll("#tf-tabs button");
 
 const aiSummarySubEl = document.getElementById("ai-summary-sub");
 const aiSummaryStatsEl = document.getElementById("ai-summary-stats");
-const aiSummaryStocksEl = document.getElementById("ai-summary-stocks");
 const aiSummaryChipsEl = document.getElementById("ai-summary-chips");
 const aiSummaryTsEl = document.getElementById("ai-summary-ts");
 const aiSummaryRefreshEl = document.getElementById("ai-summary-refresh");
-
-const TAG_LABEL = { resistance: "ทะลุแนวต้าน", support: "ใกล้แนวรับ", gainer: "พุ่งแรง", loser: "ร่วงแรง" };
+const goldMarketStatusEl = document.getElementById("gold-market-status");
 
 function chatLink(prompt) {
   return `/admin/chat?q=${encodeURIComponent(prompt)}`;
 }
 
+// This card now shows gold only — the stock half moved to its own card on
+// the หุ้นไทย Dashboard (see stock-dashboard.js), both reading the same
+// /api/dashboard-summary so they stay in sync from one shared digest.
 function renderAiSummary(data) {
+  applyMarketStatus(goldMarketStatusEl, getGoldMarketStatus());
+
   aiSummarySubEl.className = data.gold.available ? "digest-sub" : "digest-sub pending";
   aiSummarySubEl.innerHTML = data.gold.available ? data.gold.narrative : pendingBadge(data.gold.reason);
 
-  const { goldChangePct, stockSignalCount, stockWatchlistSize, newsCount24h } = data.stats;
+  const { goldChangePct, newsCount24h } = data.stats;
   const goldValueClass = goldChangePct === null ? "" : goldChangePct >= 0 ? "bull" : "bear";
   const goldValueText = goldChangePct === null ? "—" : `${goldChangePct >= 0 ? "+" : ""}${goldChangePct.toFixed(2)}%`;
   aiSummaryStatsEl.innerHTML = `
     <div class="digest-stat"><div class="n ${goldValueClass}">${goldValueText}</div><div class="l">ทอง 24 ชม.</div></div>
-    <div class="digest-stat"><div class="n">${stockSignalCount} / ${stockWatchlistSize}</div><div class="l">หุ้นที่มีสัญญาณ</div></div>
     <div class="digest-stat"><div class="n">${newsCount24h}</div><div class="l">ข่าวใหม่ 24 ชม.</div></div>`;
 
-  if (data.stocks.length > 0) {
-    // The card only ever lists the top N biggest movers (see dashboard-summary.ts) — the stat
-    // tile above shows the true total, and this link is how you reach the rest of them.
-    const moreCount = data.stats.stockSignalCount - data.stocks.length;
-    aiSummaryStocksEl.innerHTML = `
-      <div class="digest-section-title">หุ้นที่น่าจับตา</div>
-      <div class="digest-list">
-        ${data.stocks
-          .map(
-            (s) => `
-          <div class="digest-row">
-            <span class="sym mono">${s.symbol}</span>
-            <span class="note">${s.note}</span>
-            <span class="tag ${s.tag}">${TAG_LABEL[s.tag]}</span>
-          </div>`
-          )
-          .join("")}
-      </div>
-      ${moreCount > 0 ? `<a class="digest-more-link" href="/screener">ดูอีก ${moreCount} ตัวที่มีสัญญาณใน Screener →</a>` : ""}`;
-  } else {
-    aiSummaryStocksEl.innerHTML = `<div class="digest-section-title">หุ้นที่น่าจับตา</div>${pendingBadge("ยังไม่มีหุ้นที่มีสัญญาณเด่นตอนนี้")}`;
-  }
-
   const chipDefs = [
-    ...data.stocks.slice(0, 2).map((s) => ({ label: `ขยายความเรื่อง ${s.symbol}`, prompt: `ขยายความเรื่อง ${s.symbol} หน่อย` })),
     ...(data.gold.available ? [{ label: "แนวรับ-ต้านทองตอนนี้", prompt: "แนวรับ-แนวต้านทองตอนนี้เท่าไหร่" }] : []),
     { label: "ข่าวล่าสุดมีอะไรบ้าง", prompt: "ข่าวทองล่าสุดมีอะไรบ้าง" },
   ];
