@@ -31,6 +31,9 @@ function renderAiSummary(data) {
     <div class="digest-stat"><div class="n">${newsCount24h}</div><div class="l">ข่าวใหม่ 24 ชม.</div></div>`;
 
   if (data.stocks.length > 0) {
+    // The card only ever lists the top N biggest movers (see dashboard-summary.ts) — the stat
+    // tile above shows the true total, and this link is how you reach the rest of them.
+    const moreCount = data.stats.stockSignalCount - data.stocks.length;
     aiSummaryStocksEl.innerHTML = `
       <div class="digest-section-title">หุ้นที่น่าจับตา</div>
       <div class="digest-list">
@@ -44,7 +47,8 @@ function renderAiSummary(data) {
           </div>`
           )
           .join("")}
-      </div>`;
+      </div>
+      ${moreCount > 0 ? `<a class="digest-more-link" href="/screener">ดูอีก ${moreCount} ตัวที่มีสัญญาณใน Screener →</a>` : ""}`;
   } else {
     aiSummaryStocksEl.innerHTML = `<div class="digest-section-title">หุ้นที่น่าจับตา</div>${pendingBadge("ยังไม่มีหุ้นที่มีสัญญาณเด่นตอนนี้")}`;
   }

@@ -176,6 +176,10 @@ main {
 .digest-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; background: oklch(0.22 0.007 250); font-size: 13px; }
 .digest-row .sym { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-weight: 700; width: 56px; flex-shrink: 0; }
 .digest-row .note { color: oklch(0.60 0.01 250); flex: 1; }
+.digest-more-link {
+  display: inline-block; font-size: 12px; font-weight: 700; color: oklch(0.75 0.14 85);
+  text-decoration: none; margin: -8px 0 16px;
+}
 
 .digest-chips { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 15px; border-top: 1px solid oklch(0.29 0.008 250); }
 .digest-chip {
