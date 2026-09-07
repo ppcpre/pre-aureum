@@ -11,16 +11,19 @@ body {
 .muted { color: oklch(0.60 0.01 250); font-size: 12px; }
 
 .topbar {
-  height: 56px;
+  min-height: 56px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  gap: 8px 16px;
+  padding: 10px 20px;
   border-bottom: 1px solid oklch(0.29 0.008 250);
 }
 
 .brand { font-weight: 800; letter-spacing: 0.3px; }
 
+.tf-tabs { display: flex; flex-wrap: wrap; gap: 2px; }
 .tf-tabs button {
   background: none;
   border: none;
@@ -30,6 +33,7 @@ body {
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 .tf-tabs button.active {
   background: oklch(0.29 0.008 250);
