@@ -42,7 +42,7 @@ function renderSidebar() {
     <div class="sidebar">
       <div class="brand-row">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M3 19 L8 11 L11 14 L15 6 L21 19 Z" fill="oklch(0.72 0.15 150)" fill-opacity="0.18" stroke="none"/>
+          <path d="M3 19 L8 11 L11 14 L15 6 L21 19 Z" fill="oklch(0.72 0.15 150)" fill-opacity="0.45" stroke="none"/>
           <path d="M3 19 L8 11 L11 14 L15 6" stroke="oklch(0.72 0.15 150)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
           <circle cx="15" cy="6" r="1.6" fill="oklch(0.72 0.15 150)"/>
         </svg>
