@@ -1,70 +1,133 @@
 /**
- * Renders a real candlestick chart (SVG, no library) from OHLC candles into
- * `container`, overlaid with S/R level lines and the current price line.
+ * Renders a real, interactive candlestick chart into `container`, overlaid
+ * with S/R level lines and the current price line — via TradingView's own
+ * open-source "Lightweight Charts" library (loaded as a <script> tag before
+ * this file; see index.html / stock-dashboard.html), which is what gives
+ * this chart mouse-wheel zoom, click-drag pan, and drag-the-price-axis
+ * rescaling out of the box — the same interaction as tradingview.com itself,
+ * with no extra code needed for any of that.
+ *
+ * (Previously this was a static, non-interactive hand-rolled SVG renderer —
+ * replaced 2026-09-07 because zoom/pan/axis-drag were explicitly requested,
+ * and reimplementing that by hand would have been both a lot of surface
+ * area to get right and strictly worse than the library TradingView itself
+ * ships for exactly this.)
+ *
  * Shared by the gold dashboard and the Thai stock dashboard.
  */
+
+const _colorCache = {};
+/**
+ * Resolves an oklch() (or any CSS color) string to a concrete rgb()/rgba().
+ * getComputedStyle().color turns out to just echo oklch() back verbatim in
+ * this environment rather than converting it (checked directly, not assumed)
+ * — so this reads the color back off a 1x1 canvas instead, since
+ * CanvasRenderingContext2D.fillStyle does resolve oklch() to real sRGB
+ * bytes. Cached — these are static tokens, never worth recomputing.
+ */
+function resolveColor(cssColor) {
+  if (_colorCache[cssColor]) return _colorCache[cssColor];
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = cssColor;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+  const resolved = a === 255 ? `rgb(${r}, ${g}, ${b})` : `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
+  _colorCache[cssColor] = resolved;
+  return resolved;
+}
+
 function renderCandlestickChart(container, candles, levels, currentPrice) {
+  // Tear down whatever this container was previously showing — either a
+  // pending-badge message, or a prior chart instance (symbol/timeframe
+  // switches call this function again on the SAME container element).
+  if (container._lwChart) {
+    container._lwChart.remove();
+    container._lwChart = null;
+  }
+  if (container._lwResizeObserver) {
+    container._lwResizeObserver.disconnect();
+    container._lwResizeObserver = null;
+  }
+  container.innerHTML = "";
+
   if (!candles || candles.length === 0) {
     container.innerHTML = `<span class="pending-badge"><span class="dot"></span>ยังไม่มีข้อมูลกราฟ (ข้อมูลย้อนหลังยังน้อยเกินไป)</span>`;
     return;
   }
 
-  const W = 990;
-  const H = 400;
-  const PAD_L = 8;
-  const PAD_R = 78;
-  const PAD_T = 16;
-  const PAD_B = 16;
-  const plotW = W - PAD_L - PAD_R;
-  const plotH = H - PAD_T - PAD_B;
+  // Lightweight Charts validates color strings itself (rather than just
+  // handing them to canvas) and doesn't understand oklch() — resolve our
+  // design tokens to the rgb() the browser's own CSS engine computes for
+  // them, so the chart gets colors it accepts while staying pixel-identical
+  // to the oklch() used everywhere else in the app.
+  const GREEN = resolveColor("oklch(0.72 0.15 150)");
+  const RED = resolveColor("oklch(0.65 0.18 25)");
+  const GOLD = resolveColor("oklch(0.75 0.14 85)");
+  const BORDER = resolveColor("oklch(0.29 0.008 250)");
+  const MUTED = resolveColor("oklch(0.60 0.01 250)");
 
-  const levelPrices = (levels || []).map((l) => l.price);
-  let maxP = Math.max(...candles.map((c) => c.high), ...levelPrices, currentPrice ?? -Infinity);
-  let minP = Math.min(...candles.map((c) => c.low), ...levelPrices, currentPrice ?? Infinity);
-  const range = maxP - minP || Math.max(maxP * 0.01, 1);
-  const pad = range * 0.08;
-  maxP += pad;
-  minP -= pad;
-
-  const priceToY = (p) => PAD_T + ((maxP - p) / (maxP - minP)) * plotH;
-
-  const n = candles.length;
-  const slot = plotW / n;
-  const bodyW = Math.max(1.5, Math.min(20, slot * 0.6));
-
-  const GREEN = "oklch(0.72 0.15 150)";
-  const RED = "oklch(0.65 0.18 25)";
-  const GOLD = "oklch(0.75 0.14 85)";
-
-  let svg = "";
-
-  for (const lvl of levels || []) {
-    const y = priceToY(lvl.price);
-    const color = lvl.type === "resistance" ? RED : GREEN;
-    svg += `<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="${color}" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.85"/>`;
-    svg += `<text x="${W - PAD_R + 5}" y="${y + 4}" font-family="'IBM Plex Mono', monospace" font-size="11" fill="${color}">${lvl.price.toFixed(2)}</text>`;
-  }
-
-  candles.forEach((c, i) => {
-    const x = PAD_L + i * slot + slot / 2;
-    const yHigh = priceToY(c.high);
-    const yLow = priceToY(c.low);
-    const yOpen = priceToY(c.open);
-    const yClose = priceToY(c.close);
-    const up = c.close >= c.open;
-    const color = up ? GREEN : RED;
-    const bodyTop = Math.min(yOpen, yClose);
-    const bodyH = Math.max(1, Math.abs(yClose - yOpen));
-    svg += `<line x1="${x}" y1="${yHigh}" x2="${x}" y2="${yLow}" stroke="${color}" stroke-width="1.3"/>`;
-    svg += `<rect x="${x - bodyW / 2}" y="${bodyTop}" width="${bodyW}" height="${bodyH}" fill="${color}"/>`;
+  const chart = LightweightCharts.createChart(container, {
+    width: container.clientWidth,
+    height: container.clientHeight,
+    layout: { background: { color: "transparent" }, textColor: MUTED, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 },
+    grid: { vertLines: { visible: false }, horzLines: { color: BORDER } },
+    rightPriceScale: { borderColor: BORDER },
+    timeScale: { borderColor: BORDER, timeVisible: true, secondsVisible: false },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    // Zoom/pan are on by default (handleScroll/handleScale both default true) —
+    // this is the whole point of switching to this library, left explicit here
+    // so it's clear it's not accidental.
+    handleScroll: true,
+    handleScale: true,
   });
 
-  if (typeof currentPrice === "number") {
-    const yCur = priceToY(currentPrice);
-    svg += `<line x1="${PAD_L}" y1="${yCur}" x2="${W - PAD_R - 2}" y2="${yCur}" stroke="${GOLD}" stroke-width="1.1" stroke-dasharray="2 3"/>`;
-    svg += `<rect x="${W - PAD_R}" y="${yCur - 10}" width="${PAD_R - 4}" height="20" rx="3" fill="${GOLD}"/>`;
-    svg += `<text x="${W - PAD_R + (PAD_R - 4) / 2}" y="${yCur + 4}" font-family="'IBM Plex Mono', monospace" font-size="11" font-weight="600" fill="oklch(0.16 0.02 85)" text-anchor="middle">${currentPrice.toFixed(2)}</text>`;
+  const series = chart.addCandlestickSeries({
+    upColor: GREEN,
+    downColor: RED,
+    borderUpColor: GREEN,
+    borderDownColor: RED,
+    wickUpColor: GREEN,
+    wickDownColor: RED,
+  });
+
+  series.setData(candles.map((c) => ({ time: c.ts, open: c.open, high: c.high, low: c.low, close: c.close })));
+
+  for (const lvl of levels || []) {
+    series.createPriceLine({
+      price: lvl.price,
+      color: lvl.type === "resistance" ? RED : GREEN,
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: true,
+      title: lvl.type === "resistance" ? "แนวต้าน" : "แนวรับ",
+    });
   }
 
-  container.innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%; height:100%; display:block;">${svg}</svg>`;
+  if (typeof currentPrice === "number") {
+    series.createPriceLine({
+      price: currentPrice,
+      color: GOLD,
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dotted,
+      axisLabelVisible: true,
+      title: "ปัจจุบัน",
+    });
+  }
+
+  chart.timeScale().fitContent();
+
+  // Keep the chart sized to its container — the container's own size is
+  // driven by flex/min-height CSS, not fixed pixels, so it can change
+  // (window resize, sidebar collapse, etc.) after this initial render.
+  const resizeObserver = new ResizeObserver((entries) => {
+    const { width, height } = entries[0].contentRect;
+    if (width > 0 && height > 0) chart.applyOptions({ width, height });
+  });
+  resizeObserver.observe(container);
+
+  container._lwChart = chart;
+  container._lwResizeObserver = resizeObserver;
 }
