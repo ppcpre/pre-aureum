@@ -1,4 +1,6 @@
-# Aureum — Trading Analytics (Phase 1: ทอง)
+# Pre-AUREUM — Trading Analytics (Phase 1: ทอง)
+
+> **หมายเหตุชื่อ**: แบรนด์/ข้อความในแอปเปลี่ยนเป็น "Pre-AUREUM" แล้ว (2026-09-07) — ส่วน URL ที่ deploy จริง (`aureum.precare.workers.dev`) และชื่อ Worker/โปรเจกต์ยังคงเป็น `aureum` เหมือนเดิม เพราะเปลี่ยน URL/slug ของ Worker เป็นการเปลี่ยน infrastructure จริง (ต้อง deploy ใหม่ทั้งหมด, ลิงก์เดิมพัง) ซึ่งไม่ได้อยู่ในขอบเขตของคำขอนี้
 
 Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาทอง (XAU/USD) จาก Twelve Data
 คำนวณแนวรับ-แนวต้าน แล้วแสดงผลผ่านหน้าเว็บ static ที่ serve จาก Worker เดียวกัน

@@ -41,8 +41,12 @@ function renderSidebar() {
   mount.innerHTML = `
     <div class="sidebar">
       <div class="brand-row">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="oklch(0.75 0.14 85)" stroke-width="1.8"><path d="M4 18 L9 10 L13 14 L20 5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 5 H20 V11" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        <span>AUREUM</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M3 19 L8 11 L11 14 L15 6 L21 19 Z" fill="oklch(0.72 0.15 150)" fill-opacity="0.18" stroke="none"/>
+          <path d="M3 19 L8 11 L11 14 L15 6" stroke="oklch(0.72 0.15 150)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="15" cy="6" r="1.6" fill="oklch(0.72 0.15 150)"/>
+        </svg>
+        <span>Pre-AUREUM</span>
       </div>
 
       <div class="nav-section">ทอง</div>
