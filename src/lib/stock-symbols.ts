@@ -65,3 +65,17 @@ export const STOCK_WATCHLIST: StockSymbol[] = [
 export function isKnownSymbol(symbol: string): boolean {
   return STOCK_WATCHLIST.some((s) => s.symbol === symbol.toUpperCase());
 }
+
+/**
+ * Loose SET-ticker shape check — 1-10 letters/digits/hyphens (covers share
+ * classes like "PTT-R"). Used by routes/stock.ts to accept ANY typed symbol
+ * on demand (not just STOCK_WATCHLIST's curated 50) — per user request
+ * 2026-09-08: fetch S/R only for the one stock someone actually wants,
+ * rather than only ever offering the pre-picked list. This isn't a real
+ * validity check (that's what actually calling Yahoo Finance and honestly
+ * surfacing its error tells you) — it's just enough to keep obviously
+ * malformed input from being sent upstream at all.
+ */
+export function isValidSymbolFormat(symbol: string): boolean {
+  return /^[A-Z0-9-]{1,10}$/.test(symbol.toUpperCase());
+}

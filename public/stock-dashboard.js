@@ -1,4 +1,6 @@
-const selectEl = document.getElementById("symbol-select");
+const searchFormEl = document.getElementById("symbol-search-group");
+const searchEl = document.getElementById("symbol-search");
+const suggestionsEl = document.getElementById("symbol-suggestions");
 const tfTabsEl = document.getElementById("tf-tabs");
 const symbolLabelEl = document.getElementById("symbol-label");
 const priceEl = document.getElementById("price");
@@ -121,14 +123,20 @@ async function loadSymbol(symbol) {
 
   try {
     const res = await fetch(`/api/price/stock/${symbol}`);
-    if (!res.ok) throw new Error("failed");
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.message || "fetch failed");
+    }
     const data = await res.json();
     latestPrice = data.price;
     priceEl.textContent = data.price.toFixed(2);
     updatedEl.textContent = `อัปเดตล่าสุด ${new Date(data.ts * 1000).toLocaleTimeString("th-TH")}`;
-  } catch {
+  } catch (err) {
+    console.error(`[stock] price fetch failed for ${symbol}:`, err.message);
     latestPrice = null;
-    updatedEl.innerHTML = pendingBadge("โหลดราคาไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
+    // Any failure here (unofficial feed, so a typo'd or delisted ticker looks
+    // identical to a network hiccup from here) reads honestly as "couldn't find it".
+    updatedEl.innerHTML = pendingBadge(`ไม่พบข้อมูลหุ้น "${symbol}" ตรวจสอบชื่อย่ออีกครั้ง หรือลองรีเฟรช`);
   }
 
   await loadChartAndSR();
@@ -196,6 +204,30 @@ chartRefreshEl.addEventListener("click", () => {
   });
 });
 
+// Symbol name lookup (for the curated SET50 watchlist) — populated in init().
+// A symbol typed outside that list just shows as itself, with no Thai name
+// (honest: we don't have one to show, not a placeholder/guess).
+let watchlistBySymbol = new Map();
+
+function submitSymbol() {
+  const symbol = searchEl.value.trim().toUpperCase();
+  if (!symbol) return;
+  const known = watchlistBySymbol.get(symbol);
+  symbolLabelEl.textContent = known ? `${symbol} · ${known.name}` : symbol;
+  searchEl.value = symbol;
+  loadSymbol(symbol);
+}
+
+// A <form> submit (not a manual keydown listener) is what reliably catches
+// Enter here — a plain keydown handler on the input missed Enter presses
+// while the <datalist> suggestion dropdown was open (verified in-browser,
+// not assumed): the browser's own native "Enter submits the form" handling
+// interacts correctly with that dropdown where a hand-rolled listener didn't.
+searchFormEl.addEventListener("submit", (e) => {
+  e.preventDefault();
+  submitSymbol();
+});
+
 async function init() {
   let data;
   try {
@@ -203,22 +235,20 @@ async function init() {
     if (!res.ok) throw new Error("failed to load watchlist");
     data = await res.json();
   } catch {
-    selectEl.innerHTML = `<option>โหลดรายชื่อหุ้นไม่สำเร็จ</option>`;
+    searchEl.placeholder = "โหลดรายชื่อหุ้นแนะนำไม่สำเร็จ — แต่ยังพิมพ์ชื่อย่อหุ้นเองได้";
     return;
   }
 
-  // Native <select> — 50 symbols (SET50) is too many for a tab row, and a
-  // native select gives free type-to-search without building a custom
-  // dropdown component.
-  selectEl.innerHTML = data.items.map((s) => `<option value="${s.symbol}">${s.symbol} · ${s.name}</option>`).join("");
+  watchlistBySymbol = new Map(data.items.map((s) => [s.symbol, s]));
 
-  selectEl.addEventListener("change", () => {
-    const item = data.items.find((s) => s.symbol === selectEl.value);
-    symbolLabelEl.textContent = `${item.symbol} · ${item.name}`;
-    loadSymbol(item.symbol);
-  });
+  // <datalist> gives free type-ahead suggestions from the curated SET50 list
+  // WITHOUT restricting input to it — unlike the old <select>, any symbol can
+  // still be typed and submitted (per user request 2026-09-08: "เปิดให้พิมพ์
+  // ชื่อหุ้นได้" — fetch S/R only for the one stock someone actually wants).
+  suggestionsEl.innerHTML = data.items.map((s) => `<option value="${s.symbol}">${s.symbol} · ${s.name}</option>`).join("");
 
   if (data.items.length > 0) {
+    searchEl.value = data.items[0].symbol;
     symbolLabelEl.textContent = `${data.items[0].symbol} · ${data.items[0].name}`;
     loadSymbol(data.items[0].symbol);
   }

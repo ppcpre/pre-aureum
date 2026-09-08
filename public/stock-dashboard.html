@@ -8,11 +8,18 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
 <style>
   main { max-width: none; grid-template-columns: 1fr 320px; align-items: start; }
-  #symbol-select {
+  #symbol-search-group { display: flex; align-items: center; gap: 6px; margin: 0; }
+  #symbol-search {
     background: oklch(0.14 0.006 250); border: 1px solid oklch(0.29 0.008 250); color: oklch(0.92 0.004 250);
     font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600;
-    padding: 7px 10px; border-radius: 6px; cursor: pointer; min-width: 220px;
+    padding: 7px 10px; border-radius: 6px; min-width: 190px;
   }
+  #symbol-search::placeholder { color: oklch(0.55 0.01 250); font-weight: 400; }
+  #symbol-go {
+    background: oklch(0.75 0.14 85 / 0.14); color: oklch(0.75 0.14 85); border: 1px solid oklch(0.75 0.14 85 / 0.35);
+    padding: 7px 12px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 700; flex-shrink: 0;
+  }
+  #symbol-go:hover { background: oklch(0.75 0.14 85 / 0.22); }
   .caveat {
     grid-column: 1 / -1;
     display: flex; align-items: center; gap: 8px; padding: 8px 14px;
@@ -23,7 +30,8 @@
   #chart-container { flex: 1; min-height: 380px; }
   @media (max-width: 900px) {
     main { grid-template-columns: 1fr; }
-    #symbol-select { min-width: 0; width: 100%; }
+    #symbol-search-group { width: 100%; }
+    #symbol-search { min-width: 0; flex: 1; }
   }
 </style>
 </head>
@@ -33,7 +41,11 @@
     <div class="main-col">
       <div class="topbar">
         <span style="font-size:14.5px; font-weight:700;">หุ้นไทย · Dashboard</span>
-        <select id="symbol-select"></select>
+        <form id="symbol-search-group">
+          <input type="text" id="symbol-search" list="symbol-suggestions" placeholder="พิมพ์ชื่อย่อหุ้น เช่น PTT, DELTA" autocomplete="off">
+          <datalist id="symbol-suggestions"></datalist>
+          <button type="submit" id="symbol-go">ไปดู</button>
+        </form>
         <div class="tf-tabs" id="tf-tabs">
           <button data-tf="M15">M15</button>
           <button data-tf="H1">H1</button>

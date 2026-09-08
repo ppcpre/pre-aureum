@@ -4,7 +4,7 @@ import { fetchTimeSeries } from "../lib/yahoo-finance";
 import { getStockPrice } from "../lib/stock-price";
 import { getCandles, getPreviousDayCandle, upsertCandles } from "../lib/candles-db";
 import { buildSRLevels, pickNearestLevels } from "../lib/sr-engine";
-import { isKnownSymbol, STOCK_WATCHLIST } from "../lib/stock-symbols";
+import { isValidSymbolFormat, STOCK_WATCHLIST } from "../lib/stock-symbols";
 
 export const stockRoute = new Hono<{ Bindings: Env }>();
 
@@ -14,7 +14,7 @@ stockRoute.get("/", (c) => c.json({ items: STOCK_WATCHLIST }));
 // GET /api/price/stock/:symbol — latest price, served from KV cache.
 stockRoute.get("/:symbol", async (c) => {
   const symbol = c.req.param("symbol").toUpperCase();
-  if (!isKnownSymbol(symbol)) return c.json({ error: "unknown_symbol" }, 404);
+  if (!isValidSymbolFormat(symbol)) return c.json({ error: "invalid_symbol" }, 400);
 
   try {
     return c.json(await getStockPrice(c.env, symbol));
@@ -26,7 +26,7 @@ stockRoute.get("/:symbol", async (c) => {
 // GET /api/price/stock/:symbol/history?tf=D1
 stockRoute.get("/:symbol/history", async (c) => {
   const symbol = c.req.param("symbol").toUpperCase();
-  if (!isKnownSymbol(symbol)) return c.json({ error: "unknown_symbol" }, 404);
+  if (!isValidSymbolFormat(symbol)) return c.json({ error: "invalid_symbol" }, 400);
   const tf = (c.req.query("tf") ?? "D1") as Timeframe;
 
   let candles = await getCandles(c.env.DB, symbol, tf, 100);
@@ -45,7 +45,7 @@ stockRoute.get("/:symbol/history", async (c) => {
 export const stockSrRoute = new Hono<{ Bindings: Env }>();
 stockSrRoute.get("/:symbol", async (c) => {
   const symbol = c.req.param("symbol").toUpperCase();
-  if (!isKnownSymbol(symbol)) return c.json({ error: "unknown_symbol" }, 404);
+  if (!isValidSymbolFormat(symbol)) return c.json({ error: "invalid_symbol" }, 400);
   const tf = (c.req.query("tf") ?? "D1") as Timeframe;
 
   try {
