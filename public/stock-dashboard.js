@@ -6,6 +6,7 @@ const changeEl = document.getElementById("change");
 const updatedEl = document.getElementById("updated");
 const srListEl = document.getElementById("sr-list");
 const chartContainerEl = document.getElementById("chart-container");
+const chartRefreshEl = document.getElementById("chart-refresh");
 
 let currentSymbol = null;
 let currentTf = "D1";
@@ -181,6 +182,17 @@ tfTabsEl.querySelectorAll("button").forEach((btn) => {
     btn.classList.add("active");
     currentTf = btn.dataset.tf;
     loadChartAndSR();
+  });
+});
+
+chartRefreshEl.addEventListener("click", () => {
+  if (!currentSymbol) return;
+  const svg = chartRefreshEl.querySelector("svg");
+  svg.classList.add("spinning");
+  chartRefreshEl.disabled = true;
+  loadSymbol(currentSymbol).finally(() => {
+    svg.classList.remove("spinning");
+    chartRefreshEl.disabled = false;
   });
 });
 

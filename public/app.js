@@ -3,6 +3,7 @@ const changeEl = document.getElementById("change");
 const updatedEl = document.getElementById("updated");
 const srListEl = document.getElementById("sr-list");
 const chartContainerEl = document.getElementById("chart-container");
+const chartRefreshEl = document.getElementById("chart-refresh");
 const tfButtons = document.querySelectorAll("#tf-tabs button");
 
 const aiSummarySubEl = document.getElementById("ai-summary-sub");
@@ -163,6 +164,16 @@ tfButtons.forEach((btn) => {
     btn.classList.add("active");
     currentTf = btn.dataset.tf;
     loadChartAndSR(currentTf);
+  });
+});
+
+chartRefreshEl.addEventListener("click", () => {
+  const svg = chartRefreshEl.querySelector("svg");
+  svg.classList.add("spinning");
+  chartRefreshEl.disabled = true;
+  Promise.all([loadPrice(), loadChartAndSR(currentTf)]).finally(() => {
+    svg.classList.remove("spinning");
+    chartRefreshEl.disabled = false;
   });
 });
 

@@ -56,6 +56,17 @@ async function loadZoneFinder() {
   `;
 }
 
+document.getElementById("zone-refresh").addEventListener("click", (e) => {
+  const btn = e.currentTarget;
+  const svg = btn.querySelector("svg");
+  svg.classList.add("spinning");
+  btn.disabled = true;
+  loadZoneFinder().finally(() => {
+    svg.classList.remove("spinning");
+    btn.disabled = false;
+  });
+});
+
 guardAdminAuth().then((ok) => {
   if (ok) loadZoneFinder();
 });
