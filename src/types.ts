@@ -5,7 +5,6 @@ export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
   ENVIRONMENT: string;
-  PRICE_POLL_MODE: string;
   TWELVEDATA_API_KEY: string;
   ADMIN_PASSWORD: string;
   AI: Ai;

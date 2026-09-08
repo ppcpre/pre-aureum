@@ -11,9 +11,7 @@
 		"binding": "ASSETS"
 	},
 	"vars": {
-		"ENVIRONMENT": "development",
-		// Day Trade Mode = poll every 5 min. Scalp Mode not enabled yet — see README.
-		"PRICE_POLL_MODE": "day_trade"
+		"ENVIRONMENT": "development"
 	},
 	"kv_namespaces": [
 		{
