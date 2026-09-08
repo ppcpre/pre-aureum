@@ -21,6 +21,10 @@
   }
   .chart-card { display: flex; flex-direction: column; min-height: 460px; }
   #chart-container { flex: 1; min-height: 380px; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    #symbol-select { min-width: 0; width: 100%; }
+  }
 </style>
 </head>
 <body data-active="stock-dashboard">

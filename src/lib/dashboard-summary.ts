@@ -1,6 +1,6 @@
 import type { Env } from "../types";
 import { getJSON, putJSON } from "./kv-cache";
-import { fetchLatestPrice } from "./twelvedata";
+import { getCachedGoldPrice } from "./gold-refresh";
 import { getCandles, getPreviousDayCandle } from "./candles-db";
 import { buildSRLevels, pickNearestLevels } from "./sr-engine";
 import { buildScreener, type ScreenerRow } from "./screener";
@@ -65,7 +65,12 @@ interface GoldContext {
 
 async function buildGoldContext(env: Env): Promise<GoldContext | null> {
   try {
-    const price = await fetchLatestPrice(env, GOLD_SYMBOL); // throws if TWELVEDATA_API_KEY isn't set yet
+    // Shared cache with routes/price.ts and routes/sr.ts — was calling
+    // fetchLatestPrice() directly here before, a separate uncached live call
+    // on every cache-miss regen, on top of what the price/S-R routes were
+    // already doing. Contributed to burning through Twelve Data's 800
+    // credit/day free quota in one afternoon (2026-09-08) — see gold-refresh.ts.
+    const { price } = await getCachedGoldPrice(env);
     const candles = await getCandles(env.DB, GOLD_SYMBOL, "H4", 150);
     const previousDayCandle = await getPreviousDayCandle(env, GOLD_SYMBOL);
     const levels = candles.length > 0 ? pickNearestLevels(buildSRLevels(candles, previousDayCandle, price), price) : [];
@@ -185,7 +190,7 @@ async function generateDashboardSummary(env: Env): Promise<DashboardSummary> {
   if (!gold && flaggedStocks.length === 0) {
     return {
       generatedAt,
-      gold: { available: false, reason: "รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)" },
+      gold: { available: false, reason: "ราคาทองยังใช้ไม่ได้ตอนนี้ ลองใหม่ภายหลัง" },
       stocks: [],
       stats,
     };
@@ -198,7 +203,7 @@ async function generateDashboardSummary(env: Env): Promise<DashboardSummary> {
       ? { available: true, sentiment: modelOutput.goldSentiment ?? "neutral", narrative: modelOutput.goldNarrative }
       : {
           available: false,
-          reason: gold ? "AI สรุปไม่สำเร็จ ลองรีเฟรชอีกครั้ง" : "รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)",
+          reason: gold ? "AI สรุปไม่สำเร็จ ลองรีเฟรชอีกครั้ง" : "ราคาทองยังใช้ไม่ได้ตอนนี้ ลองใหม่ภายหลัง",
         };
 
   const stocks = flaggedStocks.map((row) => ({

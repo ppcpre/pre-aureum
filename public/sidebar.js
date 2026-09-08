@@ -38,8 +38,15 @@ function renderSidebar() {
   if (!mount) return;
   const activeId = document.body.dataset.active || "";
 
+  // Mobile: sidebar becomes an off-canvas drawer (see styles.css @media ≤768px),
+  // opened via this floating toggle + closed via the backdrop or picking a link.
+  // Rendered on every page (desktop just never shows it, via CSS).
   mount.innerHTML = `
-    <div class="sidebar">
+    <button class="sidebar-toggle" id="sidebar-toggle" aria-label="เปิดเมนู">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6H20 M4 12H20 M4 18H20" stroke-linecap="round"/></svg>
+    </button>
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+    <div class="sidebar" id="sidebar-panel">
       <div class="brand-row">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
           <path d="M3 19 L8 11 L11 14 L15 6 L21 19 Z" fill="oklch(0.72 0.15 150)" fill-opacity="0.45" stroke="none"/>
@@ -60,6 +67,23 @@ function renderSidebar() {
       <div class="admin-label">${ICONS.lock}<span class="nav-section" style="padding:0; color:oklch(0.75 0.14 85);">Admin</span></div>
       ${ADMIN_NAV.map((i) => navItem(i, activeId)).join("")}
     </div>`;
+
+  const toggle = document.getElementById("sidebar-toggle");
+  const backdrop = document.getElementById("sidebar-backdrop");
+  const panel = document.getElementById("sidebar-panel");
+
+  function closeSidebar() {
+    panel.classList.remove("open");
+    backdrop.classList.remove("open");
+  }
+
+  toggle.addEventListener("click", () => {
+    panel.classList.toggle("open");
+    backdrop.classList.toggle("open");
+  });
+  backdrop.addEventListener("click", closeSidebar);
+  // Tapping a nav link on mobile should close the drawer, not leave it covering the new page.
+  panel.querySelectorAll("a.nav-item").forEach((a) => a.addEventListener("click", closeSidebar));
 }
 
 renderSidebar();

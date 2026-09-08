@@ -78,15 +78,16 @@ function pendingBadge(message) {
 async function loadPrice() {
   try {
     const res = await fetch("/api/price/gold");
-    if (!res.ok) throw new Error("not configured");
     const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "fetch failed");
     latestPrice = data.price;
     priceEl.textContent = data.price.toFixed(2);
     updatedEl.textContent = `อัปเดตล่าสุด ${new Date(data.ts * 1000).toLocaleTimeString("th-TH")}`;
-  } catch {
+  } catch (err) {
+    console.error("[gold] price fetch failed:", err.message);
     latestPrice = null;
     priceEl.textContent = "—";
-    updatedEl.innerHTML = pendingBadge("รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)");
+    updatedEl.innerHTML = pendingBadge("ราคาทองยังใช้ไม่ได้ตอนนี้ ลองใหม่ภายหลัง");
   }
 }
 
@@ -124,6 +125,8 @@ async function loadChartAndSR(tf) {
   if (historyRes?.ok) {
     const data = await historyRes.json();
     candles = data.candles ?? [];
+  } else if (historyRes) {
+    console.error("[gold] history fetch failed:", (await historyRes.json().catch(() => ({}))).message);
   }
 
   let levels = [];
@@ -132,10 +135,12 @@ async function loadChartAndSR(tf) {
     const data = await srRes.json();
     levels = data.levels ?? [];
     srOk = true;
+  } else if (srRes) {
+    console.error("[gold] S/R fetch failed:", (await srRes.json().catch(() => ({}))).message);
   }
 
   if (candles.length === 0) {
-    chartContainerEl.innerHTML = pendingBadge("รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)");
+    chartContainerEl.innerHTML = pendingBadge("โหลดกราฟไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
   } else {
     renderCandlestickChart(chartContainerEl, candles, levels, latestPrice ?? candles[candles.length - 1].close);
     const first = candles[0].open;
@@ -148,7 +153,7 @@ async function loadChartAndSR(tf) {
   if (srOk) {
     renderSRList(levels);
   } else {
-    srListEl.innerHTML = pendingBadge("รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)");
+    srListEl.innerHTML = pendingBadge("โหลดแนวรับ-แนวต้านไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
   }
 }
 

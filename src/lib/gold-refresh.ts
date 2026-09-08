@@ -8,7 +8,16 @@ const LATEST_PRICE_KEY = "price:XAU_USD:latest";
 // No standing cron keeps this warm anymore (removed 2026-09-08 — gold price is
 // only ever fetched on demand now) — this TTL is what actually paces live
 // Twelve Data calls while someone has a page open.
-const LATEST_PRICE_TTL_SECONDS = 90;
+//
+// ⚠️ Raised from 90s to 300s on 2026-09-08, same day, after the original
+// value (combined with refreshGoldTail's original 240s) burned through
+// Twelve Data's free 800-credit/day quota within hours of going live (hit
+// "1301 API credits used" mid-afternoon — confirmed via the API's own error
+// response, not a guess). Every failed over-quota request still appears to
+// count against the daily total, so this isn't just about steady-state
+// pacing — a tight cooldown here directly shortens how long 800 credits
+// lasts once traffic (or repeated testing) is frequent.
+const LATEST_PRICE_TTL_SECONDS = 300;
 
 /**
  * Shared by routes/price.ts and routes/sr.ts so both read the same cached
@@ -31,7 +40,15 @@ export async function getCachedGoldPrice(env: Env): Promise<{ price: number; ts:
 // freshness guarantee (D1 could be older if refreshes keep failing) — just
 // a cap on API usage so opening the same page twice in five seconds, or two
 // tabs open at once, doesn't double the call volume.
-const REFRESH_COOLDOWN_SECONDS = 240;
+//
+// ⚠️ Raised from 240s to 1800s (30 min) on 2026-09-08 — see the note on
+// LATEST_PRICE_TTL_SECONDS above. routes/sr.ts calls this for BOTH the
+// viewed timeframe AND (separately) "D1" on every non-D1 view, so with 5
+// timeframes this was up to 6 independent cooldown buckets each capable of
+// firing every 240s — that adds up fast against a 800/day budget. 30 min
+// per bucket keeps worst-case usage well under budget even with someone
+// actively clicking through every timeframe.
+const REFRESH_COOLDOWN_SECONDS = 1800;
 
 /**
  * Tops up the last few candles for one gold timeframe from Twelve Data —

@@ -10,6 +10,9 @@
   main { max-width: none; grid-template-columns: 1fr 320px; align-items: start; }
   .chart-card { display: flex; flex-direction: column; min-height: 460px; }
   #chart-container { flex: 1; min-height: 380px; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body data-active="gold-dashboard">

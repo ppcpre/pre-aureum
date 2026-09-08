@@ -14,8 +14,9 @@ async function loadZoneFinder() {
     const biasEl = document.getElementById("bias");
     biasEl.textContent = "รอข้อมูล";
     biasEl.className = "bias-badge neutral";
+    console.error("[zone-finder] price fetch failed:", data.message);
     document.getElementById("score").innerHTML =
-      `<span class="pending-badge"><span class="dot"></span>รอเชื่อมต่อข้อมูลราคา (Twelve Data API key)</span>`;
+      `<span class="pending-badge"><span class="dot"></span>ราคาทองยังใช้ไม่ได้ตอนนี้ ลองใหม่ภายหลัง</span>`;
     document.getElementById("checklist").innerHTML =
       `<span class="pending-badge"><span class="dot"></span>เช็คลิสต์จะคำนวณได้เมื่อมีข้อมูลราคาแล้ว</span>`;
     document.getElementById("zones").innerHTML = `
