@@ -8,7 +8,10 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
 ## สถานะตอนนี้ (Milestone ที่ scaffold แล้ว)
 
 - ✅ M0 — โครงโปรเจกต์ (Hono, TypeScript, D1/KV/Cron config)
-- ✅ M1 — Gold price pipeline (Twelve Data → KV cache + D1 history) — **รอ TWELVEDATA_API_KEY** (ตั้งใจข้ามไว้ก่อน)
+- ✅ M1 — Gold price pipeline (Twelve Data → KV cache + D1 history) — เชื่อม TWELVEDATA_API_KEY แล้ว (2026-09-06)
+  - **✅ เปลี่ยนเป็น on-demand แล้ว (2026-09-08)**: ตามที่ขอ ("ไม่ต้องดึงตลอดเวลา ค่อยดึงตอนที่เปิด web app") — เดิม cron `*/5 * * * *` ดึงราคา+แท่งเทียนทองทุก 5 นาที **ตลอดเวลาไม่ว่าจะมีคนเปิดแอปดูอยู่หรือไม่** ตอนนี้ตัด `pollGoldPrice` ออกจาก cron แล้ว (cron ที่เหลือมีแค่ข่าว) — ราคา/กราฟ/แนวรับ-ต้าน **fetch จาก Twelve Data ก็ต่อเมื่อมีคนเปิดหน้าเว็บจริง** ผ่าน 3 route (`/api/price/gold`, `/api/price/gold/history`, `/api/sr/gold`) ที่ต่างก็ cache/throttle เอง (`src/lib/gold-refresh.ts`): ราคาจริง cache 90 วิใน KV, แท่งเทียนแต่ละ timeframe top-up แค่ tail (5 แท่งล่าสุด) โดยมี cooldown 240 วิ/timeframe กันยิง Twelve Data ซ้ำถ้ามีคนเปิดหลายแท็บ/reload ถี่ๆ
+  - **⚠️ เจอ regression ระหว่างแก้**: ตอนรวม logic เข้า `getCachedGoldPrice()` เกือบทำให้ field `ts` ที่ frontend เอาไปโชว์เป็น "อัปเดตล่าสุด" กลายเป็นเวลาที่ **request เข้ามา** แทนที่จะเป็นเวลาที่ **ราคาถูก fetch จริง** (ถ้าไม่จับจุดนี้ หน้าเว็บจะโชว์ "อัปเดตล่าสุด" เป็นเวลาปัจจุบันตลอด ทั้งที่ราคาจริงอาจเก่ากว่านั้น — ผิดหลัก honest data ของโปรเจกต์นี้) แก้แล้วให้ `ts` มาจากตอน fetch จริงเท่านั้น
+  - ผลข้างเคียงที่ดี: `routes/sr.ts` เดิมเรียก `fetchLatestPrice` สดทุกครั้งที่มีคน request (ไม่มี cache เลย) ตอนนี้ใช้ cache ร่วมกับ `/api/price/gold` แล้ว ลดจำนวนเรียก Twelve Data ลงไปอีก
 - ✅ M2 — S/R engine: Pivot Points, Swing High/Low, EMA50/EMA200 (dynamic S/R), Volume Profile (POC/VAH/VAL) — ทั้งหมดคำนวณจริง ตรวจ sanity ด้วยข้อมูลสังเคราะห์แล้ว (ดูหมายเหตุด้านล่าง)
 - ✅ M3 — Frontend เต็มไซต์แล้ว: sidebar เมนูแยกทอง/หุ้นไทย/Admin ใช้ได้ทุกหน้า
   - ทอง: Dashboard (จริง), ข่าว (จริง — ใช้ M4), คำนวณความเสี่ยง (จริง, client-side ล้วน)
@@ -136,6 +139,7 @@ src/
     dashboard-summary.ts  GET /api/dashboard-summary — AI gold+stock digest for the Dashboard card (public)
   lib/
     twelvedata.ts    Twelve Data API client (ทอง)
+    gold-refresh.ts  On-demand ราคา+แท่งเทียนทอง (cache 90s + tail-refresh throttle 240s/timeframe) — ไม่มี cron แล้ว
     yahoo-finance.ts Yahoo Finance unofficial client (หุ้นไทย, .BK) — ดู caveat ในไฟล์
     stock-symbols.ts Watchlist หุ้นไทยที่คัดไว้ (ตอนนี้ 4 ตัว)
     screener.ts      Logic กรอง gainer/loser/near_support/breakout

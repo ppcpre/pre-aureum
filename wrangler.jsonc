@@ -32,7 +32,7 @@
 	"ai": { "binding": "AI" },
 	"triggers": {
 		"crons": [
-			"*/5 * * * *", // Day Trade Mode: gold price + news every 5 minutes.
+			"*/5 * * * *", // News polling every 5 minutes (gold price is on-demand now — see src/lib/gold-refresh.ts).
 			"0 * * * *"    // Thai stocks (SET50, 50 symbols): hourly — see index.ts pollStockPrices()
 		]
 	},

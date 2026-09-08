@@ -8,7 +8,6 @@ import { stockRoute, stockSrRoute } from "./routes/stock";
 import { screenerRoute } from "./routes/screener";
 import { chatRoute } from "./routes/chat";
 import { dashboardSummaryRoute } from "./routes/dashboard-summary";
-import { fetchLatestPrice, fetchTimeSeries } from "./lib/twelvedata";
 import * as yahoo from "./lib/yahoo-finance";
 import { putJSON } from "./lib/kv-cache";
 import { upsertCandles } from "./lib/candles-db";
@@ -31,30 +30,6 @@ app.route("/api/dashboard-summary", dashboardSummaryRoute);
 
 // Anything that isn't an API route falls through to the static frontend.
 app.get("*", (c) => c.env.ASSETS.fetch(c.req.raw));
-
-const GOLD_SYMBOL = "XAU/USD";
-const LATEST_PRICE_KEY = "price:XAU_USD:latest";
-
-/**
- * Day Trade Mode: runs every 5 minutes (see wrangler.jsonc `triggers.crons`).
- * Refreshes the latest-price cache and appends the current H4/D1 candles.
- * Scalp Mode (10-15s polling) is intentionally not wired up yet — see README
- * for why (free-tier Twelve Data quota needs validating first).
- */
-async function pollGoldPrice(env: Env): Promise<void> {
-  try {
-    const price = await fetchLatestPrice(env, GOLD_SYMBOL);
-    await putJSON(env.CACHE, LATEST_PRICE_KEY, { price, ts: Math.floor(Date.now() / 1000) }, 90);
-
-    for (const tf of ["H4", "D1"] as const) {
-      const candles = await fetchTimeSeries(env, GOLD_SYMBOL, tf, 5);
-      await upsertCandles(env.DB, GOLD_SYMBOL, tf, candles);
-    }
-  } catch (err) {
-    // Expected to fail until TWELVEDATA_API_KEY is set — don't let it block pollNews().
-    console.error("[cron] pollGoldPrice failed:", err);
-  }
-}
 
 /**
  * Yahoo Finance (unofficial, .BK tickers) — accuracy-testing phase of M6.
@@ -114,9 +89,14 @@ export default {
   async scheduled(event, env, ctx) {
     const tasks: Promise<unknown>[] = [];
 
-    // "*/5 * * * *" — gold + news, cheap (1 symbol, a handful of RSS feeds).
+    // "*/5 * * * *" — news, cheap (a handful of RSS feeds). Gold price/candles are
+    // NOT polled here on a standing schedule anymore (2026-09-08, per user request:
+    // "ไม่ต้องดึงตลอดเวลา ค่อยดึงตอนที่เปิด web app") — they're refreshed on-demand
+    // by the price/history/S-R routes themselves, throttled via a KV cooldown, so a
+    // live Twelve Data call only happens when someone is actually looking at the
+    // app. See lib/gold-refresh.ts.
     if (event.cron === "*/5 * * * *") {
-      tasks.push(pollGoldPrice(env), pollNews(env).then(() => analyzePendingSentiment(env)));
+      tasks.push(pollNews(env).then(() => analyzePendingSentiment(env)));
     }
 
     // "0 * * * *" — Thai stocks, hourly (see pollStockPrices() for why not 5-min).

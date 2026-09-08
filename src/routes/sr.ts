@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import type { Env, Timeframe } from "../types";
-import { fetchLatestPrice, fetchTimeSeries } from "../lib/twelvedata";
+import { fetchTimeSeries } from "../lib/twelvedata";
 import { getCandles, getPreviousDayCandle, upsertCandles } from "../lib/candles-db";
 import { buildSRLevels, pickNearestLevels } from "../lib/sr-engine";
+import { getCachedGoldPrice, refreshGoldTail } from "../lib/gold-refresh";
 
 export const srRoute = new Hono<{ Bindings: Env }>();
 
@@ -17,10 +18,18 @@ srRoute.get("/gold", async (c) => {
     if (candles.length === 0) {
       candles = await fetchTimeSeries(c.env, GOLD_SYMBOL, tf, 150);
       await upsertCandles(c.env.DB, GOLD_SYMBOL, tf, candles);
+    } else {
+      // On-demand top-up (throttled, see gold-refresh.ts) instead of a standing cron.
+      await refreshGoldTail(c.env, tf);
+      candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 150);
     }
 
+    // Pivot points always need the daily candle regardless of which timeframe
+    // is being viewed — keep it topped up too (no-op if tf itself is "D1").
+    if (tf !== "D1") await refreshGoldTail(c.env, "D1");
+
     const previousDayCandle = await getPreviousDayCandle(c.env, GOLD_SYMBOL);
-    const currentPrice = await fetchLatestPrice(c.env, GOLD_SYMBOL);
+    const { price: currentPrice } = await getCachedGoldPrice(c.env);
     const levels = pickNearestLevels(buildSRLevels(candles, previousDayCandle, currentPrice), currentPrice);
 
     return c.json({ symbol: GOLD_SYMBOL, timeframe: tf, currentPrice, levels });
