@@ -14,7 +14,7 @@ function render() {
   const tbody = document.getElementById("rows");
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6"><span class="pending-badge"><span class="dot"></span>ไม่มีหุ้นที่เข้าเงื่อนไขนี้ตอนนี้</span></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><span class="pending-badge"><span class="dot"></span>ไม่มีหุ้นที่เข้าเงื่อนไขนี้ตอนนี้</span></td></tr>`;
     return;
   }
 
@@ -30,6 +30,7 @@ function render() {
         <td class="mono muted">${r.nearestSupport?.toFixed(2) ?? "—"}</td>
         <td class="mono muted">${r.nearestResistance?.toFixed(2) ?? "—"}</td>
         <td><span class="signal-tag signal-${r.signal}">${SIGNAL_LABEL[r.signal]}</span></td>
+        <td class="set-col"><span class="row-links">${renderSetLinks(r.symbol, { iconOnly: true })}</span></td>
       </tr>`
     )
     .join("");
@@ -52,7 +53,7 @@ async function init() {
     render();
   } catch {
     document.getElementById("rows").innerHTML =
-      `<tr><td colspan="6"><span class="pending-badge"><span class="dot"></span>โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง</span></td></tr>`;
+      `<tr><td colspan="7"><span class="pending-badge"><span class="dot"></span>โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง</span></td></tr>`;
   }
 }
 

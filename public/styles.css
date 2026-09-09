@@ -119,6 +119,18 @@ main {
   .stale-banner { flex-direction: column; align-items: flex-start; }
 }
 
+/* Links out to SET's own pages (dividends, historical price) — see set-links.js */
+.set-links-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 16px; }
+.set-link {
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+  color: oklch(0.60 0.01 250); border: 1px solid oklch(0.29 0.008 250); border-radius: 6px;
+  font-size: 12px; font-weight: 600; padding: 5px 10px; white-space: nowrap;
+}
+.set-link:hover { color: oklch(0.75 0.14 85); border-color: oklch(0.75 0.14 85 / 0.4); background: oklch(0.75 0.14 85 / 0.08); }
+.set-link svg { flex-shrink: 0; }
+.set-link.icon-only { padding: 5px; }
+.row-links { display: inline-flex; gap: 6px; }
+
 /* Site shell: sidebar nav + main content column, shared across every page */
 .app-shell { display: flex; min-height: 100vh; }
 

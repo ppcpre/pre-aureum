@@ -29,6 +29,7 @@
   .signal-near_support { color: oklch(0.72 0.15 150); background: oklch(0.72 0.15 150 / 0.14); }
   .signal-breakout_resistance { color: oklch(0.75 0.14 85); background: oklch(0.75 0.14 85 / 0.14); }
   .signal-normal { color: oklch(0.60 0.01 250); background: oklch(0.29 0.008 250); }
+  th.set-col, td.set-col { text-align: right; }
 </style>
 </head>
 <body data-active="stock-screener">
@@ -55,9 +56,9 @@
         <section class="card">
           <table>
             <thead>
-              <tr><th>Symbol</th><th>ราคา</th><th>% 24 ชม.</th><th>แนวรับ</th><th>แนวต้าน</th><th>สัญญาณ</th></tr>
+              <tr><th>Symbol</th><th>ราคา</th><th>% 24 ชม.</th><th>แนวรับ</th><th>แนวต้าน</th><th>สัญญาณ</th><th class="set-col">SET</th></tr>
             </thead>
-            <tbody id="rows"><tr><td colspan="6">กำลังโหลด…</td></tr></tbody>
+            <tbody id="rows"><tr><td colspan="7">กำลังโหลด…</td></tr></tbody>
           </table>
         </section>
       </main>
@@ -66,6 +67,7 @@
 
   <script src="/sidebar.js"></script>
   <script src="/chat-fab.js"></script>
+  <script src="/set-links.js"></script>
   <script src="/screener.js"></script>
 </body>
 </html>

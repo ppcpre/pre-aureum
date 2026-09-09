@@ -9,6 +9,7 @@ const updatedEl = document.getElementById("updated");
 const srListEl = document.getElementById("sr-list");
 const chartContainerEl = document.getElementById("chart-container");
 const chartRefreshEl = document.getElementById("chart-refresh");
+const setLinksEl = document.getElementById("set-links");
 
 let currentSymbol = null;
 let currentTf = "D1";
@@ -120,6 +121,7 @@ async function loadSymbol(symbol) {
   updatedEl.textContent = "กำลังโหลด…";
   srListEl.textContent = "กำลังโหลด…";
   chartContainerEl.innerHTML = "กำลังโหลด…";
+  setLinksEl.innerHTML = renderSetLinks(symbol);
 
   try {
     const res = await fetch(`/api/price/stock/${symbol}`);
