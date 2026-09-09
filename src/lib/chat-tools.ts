@@ -1,8 +1,8 @@
 import type { Env, Timeframe } from "../types";
-import * as twelvedata from "./twelvedata";
 import * as yahoo from "./yahoo-finance";
 import { getStockPrice } from "./stock-price";
 import { getCandles, getPreviousDayCandle, upsertCandles } from "./candles-db";
+import { getCachedGoldPrice, getGoldCandles } from "./gold-refresh";
 import { buildSRLevels, pickNearestLevels } from "./sr-engine";
 import { isKnownSymbol, STOCK_WATCHLIST } from "./stock-symbols";
 import { buildScreener } from "./screener";
@@ -92,19 +92,20 @@ export async function executeChatTool(env: Env, name: string, args: Record<strin
   try {
     switch (name) {
       case "get_gold_price": {
-        const price = await twelvedata.fetchLatestPrice(env, GOLD_SYMBOL);
+        // Shares the same cached price (KV, 300s TTL) + failure backoff as
+        // every REST route — was calling Twelve Data directly before
+        // (2026-09-09), the exact bypass that burned through the free daily
+        // quota earlier this same session. See gold-refresh.ts.
+        const { price } = await getCachedGoldPrice(env);
         return JSON.stringify({ symbol: GOLD_SYMBOL, price });
       }
 
       case "get_gold_support_resistance": {
         const timeframe = args.timeframe as Timeframe;
-        let candles = await getCandles(env.DB, GOLD_SYMBOL, timeframe, 150);
-        if (candles.length === 0) {
-          candles = await twelvedata.fetchTimeSeries(env, GOLD_SYMBOL, timeframe, 150);
-          await upsertCandles(env.DB, GOLD_SYMBOL, timeframe, candles);
-        }
+        // Same shared cache/cooldown/backfill as routes/sr.ts — see note above.
+        const candles = await getGoldCandles(env, timeframe, 150);
         const previousDayCandle = await getPreviousDayCandle(env, GOLD_SYMBOL);
-        const currentPrice = await twelvedata.fetchLatestPrice(env, GOLD_SYMBOL);
+        const { price: currentPrice } = await getCachedGoldPrice(env);
         const levels = pickNearestLevels(buildSRLevels(candles, previousDayCandle, currentPrice), currentPrice);
         return JSON.stringify({ symbol: GOLD_SYMBOL, timeframe, currentPrice, levels });
       }
