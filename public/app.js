@@ -101,12 +101,9 @@ function renderSRList(levels) {
     .sort((a, b) => b.price - a.price)
     .map(
       (lvl) => `
-      <div class="sr-row ${lvl.type}">
-        <div>
-          <div class="mono" style="font-weight:700;">${lvl.price.toFixed(2)}</div>
-          <div class="muted">${lvl.methods.join(" + ")}</div>
-        </div>
-        <span class="tag ${lvl.type}">${lvl.type === "resistance" ? "แนวต้าน" : "แนวรับ"}</span>
+      <div class="sr-tile ${lvl.type}">
+        <div class="p mono">${lvl.price.toFixed(2)}</div>
+        <div class="l">${lvl.type === "resistance" ? "แนวต้าน" : "แนวรับ"} · ${lvl.methods.join("+")}</div>
       </div>`
     )
     .join("");
@@ -158,12 +155,51 @@ async function loadChartAndSR(tf) {
   }
 }
 
+// Multi-timeframe buy/sell/hold signal (M15/H1/H4/D1/W1) — one shared fetch,
+// re-rendered (not re-fetched) whenever the tf tab changes, since all 5
+// timeframes come back from /api/signal/gold in a single call.
+const signalBadgeEl = document.getElementById("signal-badge");
+const signalBadgeTextEl = document.getElementById("signal-badge-text");
+const tfSignalRowEl = document.getElementById("tf-signal-row");
+
+const SIGNAL_LABEL_TH = { buy: "ซื้อ", sell: "ขาย", hold: "รอดู" };
+let latestSignals = null; // TimeframeSignal[] from /api/signal/gold
+
+function renderGoldSignal() {
+  if (!latestSignals) return;
+
+  const current = latestSignals.find((s) => s.tf === currentTf);
+  signalBadgeEl.className = `signal-badge ${current ? current.signal : "hold"}`;
+  signalBadgeTextEl.textContent = current ? SIGNAL_LABEL_TH[current.signal] : "—";
+
+  tfSignalRowEl.innerHTML = latestSignals
+    .map((s) => `<span class="tf-chip ${s.signal}">${s.tf}</span>`)
+    .join("");
+}
+
+async function loadGoldSignal() {
+  try {
+    const res = await fetch("/api/signal/gold");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || "fetch failed");
+    latestSignals = data.timeframes;
+    renderGoldSignal();
+  } catch (err) {
+    console.error("[gold] signal fetch failed:", err.message);
+    latestSignals = null;
+    signalBadgeEl.className = "signal-badge hold";
+    signalBadgeTextEl.textContent = "—";
+    tfSignalRowEl.innerHTML = ["M15", "H1", "H4", "D1", "W1"].map((tf) => `<span class="tf-chip na">${tf}</span>`).join("");
+  }
+}
+
 tfButtons.forEach((btn) => {
   btn.addEventListener("click", () => {
     tfButtons.forEach((b) => b.classList.remove("active"));
     btn.classList.add("active");
     currentTf = btn.dataset.tf;
     loadChartAndSR(currentTf);
+    renderGoldSignal(); // same 5-timeframe payload already in hand — no new fetch
   });
 });
 
@@ -171,7 +207,7 @@ chartRefreshEl.addEventListener("click", () => {
   const svg = chartRefreshEl.querySelector("svg");
   svg.classList.add("spinning");
   chartRefreshEl.disabled = true;
-  Promise.all([loadPrice(), loadChartAndSR(currentTf)]).finally(() => {
+  Promise.all([loadPrice(), loadChartAndSR(currentTf), loadGoldSignal()]).finally(() => {
     svg.classList.remove("spinning");
     chartRefreshEl.disabled = false;
   });
@@ -181,6 +217,7 @@ async function init() {
   await loadPrice();
   await loadChartAndSR(currentTf);
   loadAiSummary(); // independent of price/chart — don't block the rest of the page on it
+  loadGoldSignal();
 }
 
 // Auto-refresh: paced, quota-conscious, and time-bounded (per user request
@@ -225,6 +262,7 @@ function startAutoRefresh() {
 
     loadPrice();
     loadChartAndSR(currentTf);
+    loadGoldSignal();
   }, AUTO_REFRESH_INTERVAL_MS);
 }
 
@@ -232,6 +270,7 @@ staleRefreshBtnEl.addEventListener("click", async () => {
   staleRefreshBtnEl.disabled = true;
   await loadPrice();
   await loadChartAndSR(currentTf);
+  await loadGoldSignal();
   staleRefreshBtnEl.disabled = false;
   startAutoRefresh(); // manual refresh resets the 5-minute window
 });

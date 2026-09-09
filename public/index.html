@@ -10,8 +10,48 @@
   main { max-width: none; grid-template-columns: 1fr 320px; align-items: start; }
   .chart-card { display: flex; flex-direction: column; min-height: 460px; }
   #chart-container { flex: 1; min-height: 380px; }
+  .chart-card, .sr-card { grid-column: 1 / -1; }
+  /* Row 1: summary + signal side by side — override the shared full-width rule just on this page. */
+  .ai-summary { grid-column: auto; }
+
+  /* Buy/sell/hold signal card (row 1, right) */
+  .signal-card { display: flex; flex-direction: column; }
+  .signal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .signal-head .label { font-size: 13px; font-weight: 700; margin: 0; }
+  .signal-badge {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800;
+    padding: 4px 11px; border-radius: 20px; margin-left: auto; flex-shrink: 0;
+  }
+  .signal-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .signal-badge.hold { color: oklch(0.78 0.15 70); background: oklch(0.78 0.15 70 / 0.15); }
+  .signal-badge.buy { color: oklch(0.72 0.15 150); background: oklch(0.72 0.15 150 / 0.15); }
+  .signal-badge.sell { color: oklch(0.65 0.18 25); background: oklch(0.65 0.18 25 / 0.15); }
+  .tf-signal-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tf-chip {
+    flex: 1; min-width: 44px; text-align: center; font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 700; padding: 8px 0; border-radius: 6px;
+  }
+  .tf-chip.buy { color: oklch(0.72 0.15 150); background: oklch(0.72 0.15 150 / 0.16); }
+  .tf-chip.sell { color: oklch(0.65 0.18 25); background: oklch(0.65 0.18 25 / 0.16); }
+  .tf-chip.hold { color: oklch(0.78 0.15 70); background: oklch(0.78 0.15 70 / 0.16); }
+  .tf-chip.na { color: oklch(0.55 0.01 250); background: oklch(0.22 0.007 250); }
+
+  /* S/R tile grid (row 3), replacing the old .sr-row list on this page */
+  .sr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .sr-tile { background: oklch(0.22 0.007 250); border-radius: 8px; padding: 12px 12px; text-align: center; }
+  .sr-tile.resistance { border: 1px solid oklch(0.65 0.18 25 / 0.35); }
+  .sr-tile.support { border: 1px solid oklch(0.72 0.15 150 / 0.35); }
+  .sr-tile .p { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 15px; font-weight: 700; }
+  .sr-tile.resistance .p { color: oklch(0.65 0.18 25); }
+  .sr-tile.support .p { color: oklch(0.72 0.15 150); }
+  .sr-tile .l { font-size: 10.5px; color: oklch(0.55 0.01 250); margin-top: 4px; }
+
   @media (max-width: 900px) {
     main { grid-template-columns: 1fr; }
+    .ai-summary { grid-column: 1 / -1; }
+  }
+  @media (max-width: 640px) {
+    .sr-grid { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
 </head>
@@ -56,6 +96,20 @@
           <div class="digest-chips" id="ai-summary-chips"></div>
         </section>
 
+        <section class="card signal-card" id="signal-card">
+          <div class="signal-head">
+            <span class="label">สัญญาณซื้อ-ขาย</span>
+            <span class="signal-badge hold" id="signal-badge"><span class="dot"></span><span id="signal-badge-text">รอดู</span></span>
+          </div>
+          <div class="tf-signal-row" id="tf-signal-row">
+            <span class="tf-chip na">M15</span>
+            <span class="tf-chip na">H1</span>
+            <span class="tf-chip na">H4</span>
+            <span class="tf-chip na">D1</span>
+            <span class="tf-chip na">W1</span>
+          </div>
+        </section>
+
         <section class="chart-card card">
           <div class="stale-banner" id="stale-banner">
             <span>⏸ หยุดอัปเดตอัตโนมัติแล้ว (เปิดหน้านี้ค้างไว้เกิน 5 นาที) — ราคาที่เห็นอาจไม่ทันปัจจุบัน</span>
@@ -75,7 +129,7 @@
 
         <section class="sr-card card">
           <div class="label">แนวสำคัญใกล้ราคา</div>
-          <div id="sr-list">กำลังโหลด…</div>
+          <div class="sr-grid" id="sr-list">กำลังโหลด…</div>
         </section>
       </main>
     </div>

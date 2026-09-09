@@ -89,8 +89,18 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - `main` แบบ 2 คอลัมน์ (Dashboard ทอง + หุ้นไทย) ยุบเหลือ 1 คอลัมน์ที่ ≤900px
   - `#usage-panel` (หน้า AI Chat) จำกัด `max-width: calc(100vw - 40px)` กันล้นขอบจอที่แคบมากๆ
   - ทดสอบยืนยันแล้วไม่มี horizontal overflow (`scrollWidth === innerWidth`) ที่ 375px ทั้ง 3 หน้าหลัก (ทอง Dashboard, หุ้นไทย Dashboard, AI Chat)
+- ✅ **ลิงก์ข้อมูล SET อย่างเป็นทางการ (2026-09-09)**: ตามที่ขอ ("แปะลิ้ง icon ให้กดไปดูข้อมูลปันผล, ราคาย้อนหลัง ใน web SET") — Screener และ Dashboard หุ้นไทย มีปุ่ม icon 2 อัน (ปันผล/ราคาย้อนหลัง) เปิดหน้า set.or.th จริงในแท็บใหม่ ต่อ symbol ที่กำลังดูอยู่
+  - URL pattern ยืนยันจริงด้วยการเข้า set.or.th ดู DOM ตรงๆ (ไม่ได้เดา): `.../market/product/stock/quote/{SYMBOL}/rights-benefits` (ปันผล/สิทธิประโยชน์) และ `.../quote/{SYMBOL}/historical-trading` (ราคาย้อนหลัง)
+  - แชร์โค้ดเดียว (`public/set-links.js`) ระหว่าง Screener (icon อย่างเดียว ในคอลัมน์ตาราง) กับ Dashboard (icon + label เต็ม)
+  - ออกแบบผ่าน mockup ก่อนเขียนโค้ดจริง (ขอ approve ก่อนตามที่คุยกันไว้ตั้งแต่ต้น session)
+- ✅ **สัญญาณซื้อ-ขายทอง หลาย timeframe (2026-09-09)**: ตามที่ขอ ("ทำสัญญาณซื้อ สัญญาณขาย มาเพิ่มให้หน่อย ... ให้มีหลายๆ timeframe ด้วย") — การ์ดใหม่บน Dashboard ทอง โชว์ badge หลัก (ซื้อ/ขาย/รอดู) + chip แยกทั้ง 5 timeframe (M15/H1/H4/D1/W1) คู่กับการ์ด "สรุปทองประจำวัน"
+  - **ไม่ได้คิด indicator ใหม่** — ใช้สูตร 3-factor scoring เดิมที่มีอยู่แล้วและทดสอบแล้วจาก Zone Finder's "Bias" (`zone-finder.ts`): ราคายืนเหนือแนวรับใกล้สุด, EMA50>EMA200 (เทรนด์), มีที่ว่างพอก่อนถึงแนวต้าน — แต่ละอย่าง ~33.3 คะแนน รวม ≥67=ซื้อ, ≤33=ขาย, กลางๆ=รอดู เพียงคำนวณแยกทีละ timeframe แทนที่จะคำนวณทีเดียวรวม
+  - Backend ใหม่: `src/lib/gold-signal.ts` + `GET /api/signal/gold` (public, ข้อมูลชั้นเดียวกับ `/api/sr/gold` ที่เปิดอยู่แล้ว) — ดึงแท่งเทียนผ่าน `gold-refresh.ts`'s cache/cooldown/backoff เดิมเสมอ ไม่เคยยิง Twelve Data ตรงๆ กันโควตาพังซ้ำแบบที่เจอมาก่อนหน้านี้ในวันเดียวกัน
+  - Frontend: fetch ครั้งเดียวตอนเปิดหน้า/รีเฟรช ได้ข้อมูลครบ 5 timeframe มาพร้อมกัน — สลับปุ่ม timeframe บนกราฟแค่ **เปลี่ยน badge ที่โชว์อยู่** (re-render จาก data เดิมในมือ) ไม่ยิง fetch ใหม่ทุกครั้งที่กด tab
+  - ออกแบบผ่าน mockup 4 รอบก่อนเขียนโค้ดจริง (การ์ดเดี่ยว → in-context → compact คู่กับสรุปทอง → จัดแถวใหม่เป็น 3 แถวตามที่ขอสุดท้าย) — Dashboard ทองตอนนี้เป็น 3 แถว: (1) สรุปทองประจำวัน + สัญญาณซื้อ-ขาย คู่กัน (2) กราฟราคา เต็มความกว้าง (3) แนวสำคัญใกล้ราคา เต็มความกว้าง เปลี่ยนจาก list เป็นตาราง tile 4 ช่อง ให้เห็นแนวรับ-ต้านหลายระดับพร้อมกันชัดเจนขึ้น (สไตล์เปลี่ยนเฉพาะ CSS ใน `index.html` เอง ไม่แตะ `styles.css` ที่ใช้ร่วมกับ Dashboard หุ้นไทย กันกระทบหน้าอื่น)
+  - **⚠️ ข้อจำกัดที่บอกตรงๆ**: EMA200 ต้องมีแท่งเทียนอย่างน้อย 200 แท่งถึงจะคำนวณได้ ตอนนี้ D1 ยังไม่มีประวัติยาวขนาดนั้นในทุก timeframe เสมอไป — timeframe ที่ยังไม่มี EMA200 จะได้คะแนนเทรนด์เป็น 0 เสมอ (ไม่ผ่านเงื่อนไขนั้น) ทำให้คะแนนสูงสุดที่เป็นไปได้ตอนนี้อยู่ราว 67/100 ไม่ใช่ 100 เต็ม — ไม่ใช่บั๊ก แต่เป็นข้อจำกัดของข้อมูลย้อนหลังที่มี จะดีขึ้นเองเมื่อ D1 สะสมแท่งเทียนมากพอ
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
-- ⬜ ~~Scalp Mode (poll ทุก 10-15 วิ)~~ — เลิกทำแนวคิดนี้แล้ว (2026-09-08) หลังเปลี่ยนราคาทองเป็น on-demand: ไม่มี "โหมด poll แบบ fixed interval" อีกต่อไป (ดูหัวข้อ M1 ด้านบน) ถ้าอยากได้ความถี่สูงขึ้นตอนมีคนเปิดแอปอยู่ ให้ลด `REFRESH_COOLDOWN_SECONDS` ใน `lib/gold-refresh.ts` แทน (ตอนนี้ 240 วิ)
+- ⬜ ~~Scalp Mode (poll ทุก 10-15 วิ)~~ — เลิกทำแนวคิดนี้แล้ว (2026-09-08) หลังเปลี่ยนราคาทองเป็น on-demand: ไม่มี "โหมด poll แบบ fixed interval" อีกต่อไป (ดูหัวข้อ M1 ด้านบน) ถ้าอยากได้ความถี่สูงขึ้นตอนมีคนเปิดแอปอยู่ ให้ลด `REFRESH_COOLDOWN_SECONDS` ใน `lib/gold-refresh.ts` แทน (ตอนนี้ 1800 วิ — ปรับขึ้นจาก 240 วิเดิมหลังชนโควตา ดูหัวข้อ M1 ด้านบน)
 
 ## Admin auth (ใหม่)
 
@@ -145,7 +155,7 @@ npm run deploy
 
 ```
 src/
-  index.ts          Hono app + scheduled handler (cron: poll ราคา + ข่าว ทุก 5 นาที)
+  index.ts          Hono app + scheduled handler (cron: ข่าวทุก 5 นาที, หุ้นไทยทุกชั่วโมง — ราคาทองไม่มี cron แล้ว ดึงแบบ on-demand ผ่าน gold-refresh.ts)
   types.ts          Env bindings + shared types
   routes/
     price.ts         GET /api/price/gold, /api/price/gold/history
@@ -156,11 +166,13 @@ src/
     screener.ts      GET /api/screener/stock
     chat.ts          POST /api/admin/chat (SSE), GET /api/admin/chat/usage (both protected)
     dashboard-summary.ts  GET /api/dashboard-summary — AI gold+stock digest for the Dashboard card (public)
+    signal.ts        GET /api/signal/gold — สัญญาณซื้อ-ขายทอง 5 timeframe (public, เหมือน sr.ts)
   lib/
     twelvedata.ts    Twelve Data API client (ทอง)
-    gold-refresh.ts  On-demand ราคา+แท่งเทียนทอง (cache 90s + tail-refresh throttle 240s/timeframe) — ไม่มี cron แล้ว
+    gold-refresh.ts  On-demand ราคา+แท่งเทียนทอง เดียว (cache 300s + tail-refresh throttle 1800s/timeframe + failure backoff 60s) — ไม่มี cron แล้ว, ทุกจุดที่ต้องใช้ข้อมูลทองต้องผ่านไฟล์นี้ ห้ามเรียก twelvedata.ts ตรงๆ
+    gold-signal.ts   คำนวณสัญญาณซื้อ-ขาย 5 timeframe — reuse สูตร 3-factor เดิมจาก zone-finder.ts
     yahoo-finance.ts Yahoo Finance unofficial client (หุ้นไทย, .BK) — ดู caveat ในไฟล์
-    stock-symbols.ts Watchlist หุ้นไทยที่คัดไว้ (ตอนนี้ 4 ตัว)
+    stock-symbols.ts Watchlist หุ้นไทย SET50 เต็มชุด (50 ตัว) + isValidSymbolFormat() (ไม่ผูก symbol นอก watchlist)
     screener.ts      Logic กรอง gainer/loser/near_support/breakout
     zone-finder.ts   Confluence checklist สำหรับ Admin Zone Finder (ทอง)
     sr-engine.ts     Pivot Points, Swing High/Low, EMA50/200, Volume Profile, pickNearestLevels
@@ -180,7 +192,8 @@ public/
   sidebar.js         Sidebar เมนู (mount ทุกหน้าผ่าน #sidebar-mount)
   chat-fab.js        Floating chat icon ลิงก์ไป /admin/chat (ทุกหน้า ยกเว้น chat เองกับ login)
   market-hours.js    คำนวณสถานะเปิด/ปิดตลาดทอง+SET จากเวลาจริง (client-side, timezone Asia/Bangkok เสมอ) — ไม่รู้จักวันหยุดนักขัตฤกษ์
-  index.html/js      ทอง Dashboard
+  set-links.js       ปุ่ม/ลิงก์ icon ไปหน้าปันผล+ราคาย้อนหลังบน set.or.th ต่อ symbol — ใช้ร่วมกันทั้ง Screener และ Dashboard หุ้นไทย
+  index.html/js      ทอง Dashboard — 3 แถว: สรุปทอง+สัญญาณซื้อ-ขาย (คู่กัน) / กราฟ (เต็มความกว้าง) / แนวสำคัญ tile grid (เต็มความกว้าง)
   news.html/js       ทอง ข่าว
   risk-calculator.*  ทอง คำนวณความเสี่ยง (client-side ล้วน)
   stock-dashboard.*  หุ้นไทย Dashboard
