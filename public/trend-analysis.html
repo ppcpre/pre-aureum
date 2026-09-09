@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pre-AUREUM — RSI & แนวรับแนวต้าน</title>
+<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  main { max-width: none; grid-template-columns: 1fr; align-items: start; }
+
+  .trend-chart-card { display: flex; flex-direction: column; }
+  #trend-price-container { height: 420px; }
+  #trend-rsi-container { height: 200px; margin-top: 2px; }
+
+  .trend-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; font-size: 12px; }
+  .trend-legend-item { display: flex; align-items: center; gap: 6px; color: oklch(0.60 0.01 250); }
+  .trend-legend-swatch { width: 16px; height: 2px; border-radius: 1px; }
+  .trend-legend-swatch.resistance { background: oklch(0.65 0.18 25); }
+  .trend-legend-swatch.support { background: oklch(0.72 0.15 150); }
+  .trend-legend-swatch.dotted { background: repeating-linear-gradient(90deg, oklch(0.55 0.01 250) 0 4px, transparent 4px 7px); }
+
+  .rsi-header { display: flex; align-items: center; gap: 10px; margin: 18px 0 4px; }
+  .rsi-header .label { margin: 0; }
+
+  .crossing-card { margin-top: 16px; }
+  .crossing-list { display: flex; flex-direction: column; gap: 8px; }
+  .crossing-item {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px;
+    background: oklch(0.22 0.007 250); font-size: 13px;
+  }
+  .crossing-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .crossing-dot.up { background: oklch(0.72 0.15 150); }
+  .crossing-dot.down { background: oklch(0.65 0.18 25); }
+  .crossing-date { font-family: 'IBM Plex Mono', ui-monospace, monospace; color: oklch(0.86 0.005 250); }
+  .crossing-note { color: oklch(0.60 0.01 250); flex: 1; }
+  .crossing-rsi { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-weight: 700; }
+
+  .divergence-banner {
+    display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 8px;
+    font-size: 13px; line-height: 1.6; margin-bottom: 10px;
+  }
+  .divergence-banner.bearish { background: oklch(0.65 0.18 25 / 0.10); border: 1px solid oklch(0.65 0.18 25 / 0.35); }
+  .divergence-banner.bullish { background: oklch(0.72 0.15 150 / 0.10); border: 1px solid oklch(0.72 0.15 150 / 0.35); }
+  .divergence-banner .tag { flex-shrink: 0; margin-top: 1px; }
+
+  @media (max-width: 900px) {
+    #trend-price-container { height: 300px; }
+    #trend-rsi-container { height: 160px; }
+  }
+</style>
+</head>
+<body data-active="gold-trend-analysis">
+  <div class="app-shell">
+    <div id="sidebar-mount"></div>
+
+    <div class="main-col">
+      <div class="topbar">
+        <span style="font-size:14.5px; font-weight:700;">RSI & แนวรับแนวต้าน · XAU/USD</span>
+        <div class="tf-tabs" id="tf-tabs">
+          <button data-tf="M15">M15</button>
+          <button data-tf="H1">H1</button>
+          <button data-tf="H4" class="active">H4</button>
+          <button data-tf="D1">D1</button>
+          <button data-tf="W1">W1</button>
+        </div>
+      </div>
+
+      <main>
+        <section class="trend-chart-card card">
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:6px;">
+            <span class="label" style="margin:0;">แนวโน้มราคา (เส้นกรอบแนวรับ-แนวต้าน)</span>
+            <button class="ai-refresh" id="trend-refresh" aria-label="รีเฟรช" style="margin-left:auto;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11A8 8 0 1 0 18.6 16 M20 5v6h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="trend-legend">
+            <span class="trend-legend-item"><span class="trend-legend-swatch resistance"></span>แนวต้าน (เส้นเชื่อมจุดสูงล่าสุด)</span>
+            <span class="trend-legend-item"><span class="trend-legend-swatch support"></span>แนวรับ (เส้นเชื่อมจุดต่ำล่าสุด)</span>
+            <span class="trend-legend-item"><span class="trend-legend-swatch dotted"></span>RSI = 50</span>
+          </div>
+          <div id="trend-price-container">กำลังโหลด…</div>
+
+          <div class="rsi-header">
+            <span class="label">RSI (14)</span>
+          </div>
+          <div id="trend-rsi-container"></div>
+        </section>
+
+        <section class="card crossing-card">
+          <div class="label">จุดตัด RSI = 50 และสัญญาณ Divergence</div>
+          <div id="divergence-list"></div>
+          <div class="crossing-list" id="crossing-list">กำลังโหลด…</div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="/sidebar.js"></script>
+  <script src="/chat-fab.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="/candlestick-chart.js"></script>
+  <script src="/trend-analysis.js"></script>
+</body>
+</html>

@@ -104,6 +104,15 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - **ปริมาณเทรด (Volume)**: **ยังไม่มี** — เช็คจาก response จริงของ Twelve Data แล้ว ทุกแท่งเทียนทอง `volume: null` เพราะเป็นราคา spot/CFD (OTC) ไม่มี volume จริงให้รายงาน (โค้ด `buildVolumeProfile` เขียนรองรับไว้แล้วตั้งแต่ M2 แต่จะ return "ไม่มีข้อมูล" เสมอสำหรับทอง) — ผู้ใช้เลือกไม่ทำต่อตอนนี้ (ต้องเปลี่ยน provider ถึงจะได้ volume จริง)
   - **เส้นแนวรับ-ต้านบนกราฟ**: ใช้ field `strength` (1-5, มีอยู่แล้วจาก `sr-engine.ts`, ยิ่งมีหลาย method ยืนยันพร้อมกันยิ่งสูง) ปรับสีเข้ม/จางตามความแข็งแรงของแนว (opacity 0.52-1.0) และโชว์ label ข้อความบนแกนราคาแค่ **แนวที่แข็งแรงที่สุดฝั่งละ 1 เส้น** (ที่เหลือยังคงเป็นเส้นบางสีเดิม แต่ไม่มี label) — ก่อนหน้านี้แนวรับ-ต้าน 4 ระดับ/ฝั่งที่ราคาใกล้กันมากจะมี label "แนวต้าน"/"แนวรับ" ซ้อนกันเป็นแถวยาวอ่านยาก ยืนยันจากภาพหน้าจอจริงที่ผู้ใช้ส่งมา
   - ทดสอบยืนยันแล้วบน production ทั้ง desktop และ mobile: RSI pill ขึ้นค่าจริงถูกสี ไม่มี label ซ้อนกันบนกราฟอีกต่อไป
+- ✅ **หน้าใหม่ "RSI & แนวรับแนวต้าน" (2026-09-09)**: ตามที่ขอ ("อยากได้อีกกราฟ ตีเส้นกรอบมาให้แบบตัวอย่างนี้เลย แล้วบอกจุดตัด" + ภาพตัวอย่างเส้นแนวโน้มทแยง/RSI divergence 2 ภาพ) — สร้างเป็นหน้าใหม่แยกต่างหาก (`/trend-analysis`, เมนู "RSI & แนวรับแนวต้าน" ใต้ ทอง) **ไม่แตะ Dashboard เดิม** ตามที่ขอ เลือก timeframe ได้ (M15/H1/H4/D1/W1)
+  - **เส้นแนวโน้มทแยง (trend channel)**: อัลกอริทึม "OLS regression ผ่านจุดสูง/ต่ำล่าสุด แล้วเลื่อนเส้นให้แตะจุดสุดขั้ว" (`fitEnvelopeLine` + `buildTrendLine` ใน `trend-analysis.ts`) — ใช้แค่ **จุดสวิง 6 จุดล่าสุด** ต่อฝั่ง ไม่ใช่ทั้งประวัติ เพราะทดสอบแล้วพบว่าฟิตทั้งประวัติ 150 แท่งของทองที่วิ่งขึ้นแรงทำให้เส้นเอียงชันเกินจริงจนพุ่งเหนือราคาจริงหลายพันดอลลาร์ตอนลากยาวมาถึงปัจจุบัน (เจอจาก response จริงบน production ไม่ใช่เดา) แก้โดยจำกัดเฉพาะจุดล่าสุดแล้วลากเส้นจากจุดแตะแรกไปจนถึงราคาปัจจุบัน — ใช้สูตรเดียวกันนี้ทั้งบนกราฟราคาและกราฟ RSI (เส้นแนวโน้มของ RSI เอง)
+  - **RSI แบบ series เต็ม**: เพิ่ม `calculateRSISeries()` ใน `sr-engine.ts` (คำนวณทุกแท่ง ไม่ใช่แค่ค่าล่าสุดแบบ `calculateRSI()` เดิม) สำหรับวาดเป็นเส้นกราฟ
+  - **จุดตัด RSI=50**: รายการ "จุดตัด" ใต้กราฟ บอกวันที่ + ทิศทาง (ตัดขึ้น/ตัดลง) + ค่า RSI ตอนนั้นจริง
+  - **Divergence**: เทียบราคาที่จุดสวิงสูง/ต่ำ 2 จุดล่าสุดกับค่า RSI ณ เวลาเดียวกันตรงๆ (นิยามมาตรฐาน ไม่ใช้จุดสวิงของ RSI เอง) — ราคาสูงใหม่+RSI อ่อนลง = Bearish, ราคาต่ำใหม่+RSI แข็งขึ้น = Bullish ขึ้น banner สีแดง/เขียวเมื่อเจอ ถ้าไม่เจอบอกตรงๆ ว่ายังไม่พบ ไม่เคยแต่งสัญญาณลอยๆ
+  - Backend: `GET /api/trend-analysis/gold?tf=` (public, ข้อมูลชั้นเดียวกับ `/api/sr/gold`) ผ่านโค้ดใหม่ `src/lib/trend-analysis.ts` + `src/routes/trend-analysis.ts` — ดึงแท่งเทียนผ่าน `gold-refresh.ts` เดิมเสมอเหมือนทุก route ของทอง
+  - กราฟราคา + กราฟ RSI เป็นสอง chart instance ของ Lightweight Charts ซิงค์ zoom/pan กันเอง (เพราะ v4.2.3 ที่ pin ไว้ยังไม่มี multi-pane ในตัว) — ต้อง fit เนื้อหาให้เสร็จทั้งคู่ก่อนค่อยผูก sync listener ไม่งั้น range ของ RSI chart (ข้อมูลสั้นกว่าเพราะ RSI ต้องใช้ 15 แท่งแรกไปคำนวณ) จะสะท้อนกลับไปตัด range เต็มของกราฟราคาให้แคบลง (เจอบั๊กนี้จริงระหว่างทดสอบ แก้โดยสลับลำดับ)
+  - **⚠️ ข้อจำกัดที่เจอระหว่างทำ (ไม่เกี่ยวกับ feature นี้โดยตรง)**: timeframe **D1 มีแค่ 8 แท่งเทียนใน D1** (เช็คจาก production จริง) น้อยเกินกว่าจะคำนวณ RSI/เส้นแนวโน้มได้ — เป็นช่องว่างข้อมูลเดิมที่มีอยู่ก่อนแล้ว (ไม่ใช่บั๊กใหม่จาก feature นี้) หน้าใหม่จัดการอย่างซื่อสัตย์ (โชว์ "ยังไม่พบจุดตัด" ไม่ใช่ error หรือข้อมูลปลอม) แต่ยังไม่ได้แก้ที่ต้นตอ — timeframe อื่น (M15/H1/H4/W1) มีข้อมูลครบ 150 แท่งปกติ
+  - ทดสอบยืนยันแล้วบน production ทุก timeframe + mobile: เส้นแนวโน้มขึ้นสมเหตุสมผลเทียบราคาจริง, จุดตัด RSI=50 ตรงกับกราฟ, ไม่มี console error
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
 - ⬜ ~~Scalp Mode (poll ทุก 10-15 วิ)~~ — เลิกทำแนวคิดนี้แล้ว (2026-09-08) หลังเปลี่ยนราคาทองเป็น on-demand: ไม่มี "โหมด poll แบบ fixed interval" อีกต่อไป (ดูหัวข้อ M1 ด้านบน) ถ้าอยากได้ความถี่สูงขึ้นตอนมีคนเปิดแอปอยู่ ให้ลด `REFRESH_COOLDOWN_SECONDS` ใน `lib/gold-refresh.ts` แทน (ตอนนี้ 1800 วิ — ปรับขึ้นจาก 240 วิเดิมหลังชนโควตา ดูหัวข้อ M1 ด้านบน)
 
@@ -172,6 +181,7 @@ src/
     chat.ts          POST /api/admin/chat (SSE), GET /api/admin/chat/usage (both protected)
     dashboard-summary.ts  GET /api/dashboard-summary — AI gold+stock digest for the Dashboard card (public)
     signal.ts        GET /api/signal/gold — สัญญาณซื้อ-ขายทอง 5 timeframe (public, เหมือน sr.ts)
+    trend-analysis.ts  GET /api/trend-analysis/gold?tf= — RSI series + เส้นแนวโน้มทแยง + จุดตัด + divergence (public, เหมือน sr.ts)
   lib/
     twelvedata.ts    Twelve Data API client (ทอง)
     gold-refresh.ts  On-demand ราคา+แท่งเทียนทอง เดียว (cache 300s + tail-refresh throttle 1800s/timeframe + failure backoff 60s) — ไม่มี cron แล้ว, ทุกจุดที่ต้องใช้ข้อมูลทองต้องผ่านไฟล์นี้ ห้ามเรียก twelvedata.ts ตรงๆ
@@ -180,7 +190,8 @@ src/
     stock-symbols.ts Watchlist หุ้นไทย SET50 เต็มชุด (50 ตัว) + isValidSymbolFormat() (ไม่ผูก symbol นอก watchlist)
     screener.ts      Logic กรอง gainer/loser/near_support/breakout
     zone-finder.ts   Confluence checklist สำหรับ Admin Zone Finder (ทอง)
-    sr-engine.ts     Pivot Points, Swing High/Low, EMA50/200, RSI(14), Volume Profile (no data for gold — no volume field), pickNearestLevels
+    sr-engine.ts     Pivot Points, Swing High/Low, EMA50/200, RSI(14) + calculateRSISeries, Volume Profile (no data for gold — no volume field), pickNearestLevels, findSwingPoints
+    trend-analysis.ts  เส้นแนวโน้มทแยง (envelope-fit ผ่านจุดสวิงล่าสุด) + จุดตัด RSI=50 + divergence — ใช้โดย routes/trend-analysis.ts
     candles-db.ts    D1 read/write helper (ใช้ร่วมกันทองและหุ้นไทย)
     kv-cache.ts      KV read/write helper
     rss.ts           RSS feed fetch + parse (fast-xml-parser)
@@ -199,6 +210,7 @@ public/
   market-hours.js    คำนวณสถานะเปิด/ปิดตลาดทอง+SET จากเวลาจริง (client-side, timezone Asia/Bangkok เสมอ) — ไม่รู้จักวันหยุดนักขัตฤกษ์
   set-links.js       ปุ่ม/ลิงก์ icon ไปหน้าปันผล+ราคาย้อนหลังบน set.or.th ต่อ symbol — ใช้ร่วมกันทั้ง Screener และ Dashboard หุ้นไทย
   index.html/js      ทอง Dashboard — 3 แถว: สรุปทอง+สัญญาณซื้อ-ขาย (คู่กัน) / กราฟ (เต็มความกว้าง) / แนวสำคัญ tile grid (เต็มความกว้าง)
+  trend-analysis.html/js  "RSI & แนวรับแนวต้าน" — กราฟราคา+เส้นแนวโน้มทแยง คู่กับกราฟ RSI(14)+เส้นแนวโน้มของมันเอง (2 chart ซิงค์ zoom/pan กัน) + จุดตัด RSI=50 + divergence, เลือก timeframe ได้
   news.html/js       ทอง ข่าว
   risk-calculator.*  ทอง คำนวณความเสี่ยง (client-side ล้วน)
   stock-dashboard.*  หุ้นไทย Dashboard

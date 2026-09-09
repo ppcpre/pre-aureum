@@ -21,7 +21,7 @@ export function calculatePivotPoints(candle: Candle): PivotLevels {
   };
 }
 
-interface SwingPoint {
+export interface SwingPoint {
   ts: number;
   price: number;
   type: "high" | "low";
@@ -63,6 +63,12 @@ export function calculateEMA(candles: Candle[], period: number): number | undefi
   return ema;
 }
 
+function rsiFromAvgs(avgGain: number, avgLoss: number): number {
+  if (avgLoss === 0) return 100; // no losses at all in the window — maximally overbought
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+
 /**
  * Wilder's RSI (Relative Strength Index), the standard momentum oscillator —
  * 0-100, >=70 conventionally read as overbought, <=30 as oversold. Needs
@@ -71,26 +77,38 @@ export function calculateEMA(candles: Candle[], period: number): number | undefi
  * convention as calculateEMA() above.
  */
 export function calculateRSI(candles: Candle[], period = 14): number | undefined {
-  if (candles.length < period + 1) return undefined;
+  const series = calculateRSISeries(candles, period);
+  return series[series.length - 1];
+}
+
+/**
+ * Same Wilder's RSI as calculateRSI() above, but returns one value per candle
+ * (undefined for the first `period` candles, which don't have enough history
+ * yet) instead of just the latest — for drawing RSI as its own line over
+ * time (see routes/trend-analysis.ts) rather than reading one current value.
+ */
+export function calculateRSISeries(candles: Candle[], period = 14): (number | undefined)[] {
+  const result = new Array<number | undefined>(candles.length).fill(undefined);
+  if (candles.length < period + 1) return result;
 
   const changes: number[] = [];
   for (let i = 1; i < candles.length; i++) changes.push(candles[i].close - candles[i - 1].close);
 
-  // Seed with a simple average over the first `period` changes, then apply
-  // Wilder's smoothing (equivalent to an EMA with alpha = 1/period) for the rest.
+  // Seed with a simple average over the first `period` changes (-> RSI at candle
+  // index `period`), then apply Wilder's smoothing for every candle after that.
   let avgGain = avg(changes.slice(0, period).map((d) => Math.max(d, 0)));
   let avgLoss = avg(changes.slice(0, period).map((d) => Math.max(-d, 0)));
+  result[period] = rsiFromAvgs(avgGain, avgLoss);
 
   for (let i = period; i < changes.length; i++) {
     const gain = Math.max(changes[i], 0);
     const loss = Math.max(-changes[i], 0);
     avgGain = (avgGain * (period - 1) + gain) / period;
     avgLoss = (avgLoss * (period - 1) + loss) / period;
+    result[i + 1] = rsiFromAvgs(avgGain, avgLoss);
   }
 
-  if (avgLoss === 0) return 100; // no losses at all in the window — maximally overbought
-  const rs = avgGain / avgLoss;
-  return 100 - 100 / (1 + rs);
+  return result;
 }
 
 interface VolumeProfile {

@@ -7,11 +7,13 @@ const ICONS = {
   bookmark: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v18l-6-4-6 4z"/></svg>',
   bolt: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2 L4 14 H11 L10 22 L20 9 H13 Z" stroke-linejoin="round"/></svg>',
   chat: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+  trend: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17 L9 10 L13 13 L21 4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="10" r="1.3" fill="currentColor" stroke="none"/><circle cx="13" cy="13" r="1.3" fill="currentColor" stroke="none"/></svg>',
   lock: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11 V7a4 4 0 0 1 8 0v4"/></svg>',
 };
 
 const GOLD_NAV = [
   { id: "gold-dashboard", href: "/", label: "Dashboard", icon: "chart" },
+  { id: "gold-trend-analysis", href: "/trend-analysis", label: "RSI & แนวรับแนวต้าน", icon: "trend" },
   { id: "gold-news", href: "/news", label: "ข่าว", icon: "news" },
   { id: "gold-risk", href: "/risk-calculator", label: "คำนวณความเสี่ยง", icon: "calc" },
 ];
