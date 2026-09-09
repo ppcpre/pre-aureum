@@ -2,6 +2,7 @@ const priceEl = document.getElementById("price");
 const changeEl = document.getElementById("change");
 const updatedEl = document.getElementById("updated");
 const srListEl = document.getElementById("sr-list");
+const rsiPillEl = document.getElementById("rsi-pill");
 const chartContainerEl = document.getElementById("chart-container");
 const chartRefreshEl = document.getElementById("chart-refresh");
 const tfButtons = document.querySelectorAll("#tf-tabs button");
@@ -92,6 +93,18 @@ async function loadPrice() {
   }
 }
 
+// RSI(14) — >=70 conventionally "overbought" (สัญญาณร้อนแรงเกินไป, เสี่ยงย่อ),
+// <=30 "oversold" (ขายมากเกินไป, เสี่ยงเด้ง) — see calculateRSI() in sr-engine.ts.
+function renderRSI(rsi) {
+  if (rsi === null || rsi === undefined) {
+    rsiPillEl.hidden = true;
+    return;
+  }
+  rsiPillEl.hidden = false;
+  rsiPillEl.className = "rsi-pill" + (rsi >= 70 ? " overbought" : rsi <= 30 ? " oversold" : "");
+  rsiPillEl.textContent = `RSI ${rsi.toFixed(0)}`;
+}
+
 function renderSRList(levels) {
   if (!levels || levels.length === 0) {
     srListEl.innerHTML = pendingBadge("ยังไม่มีแนวรับ-แนวต้าน (ข้อมูลย้อนหลังยังน้อยเกินไป)");
@@ -133,8 +146,10 @@ async function loadChartAndSR(tf) {
     const data = await srRes.json();
     levels = data.levels ?? [];
     srOk = true;
+    renderRSI(data.rsi);
   } else if (srRes) {
     console.error("[gold] S/R fetch failed:", (await srRes.json().catch(() => ({}))).message);
+    renderRSI(null);
   }
 
   if (candles.length === 0) {

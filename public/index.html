@@ -36,6 +36,15 @@
   .tf-chip.hold { color: oklch(0.78 0.15 70); background: oklch(0.78 0.15 70 / 0.16); }
   .tf-chip.na { color: oklch(0.55 0.01 250); background: oklch(0.22 0.007 250); }
 
+  /* RSI(14) pill next to price/change — chart-card header */
+  .rsi-pill {
+    display: inline-flex; align-items: center; gap: 5px; font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+    color: oklch(0.60 0.01 250); background: oklch(0.29 0.008 250);
+  }
+  .rsi-pill.overbought { color: oklch(0.65 0.18 25); background: oklch(0.65 0.18 25 / 0.14); }
+  .rsi-pill.oversold { color: oklch(0.72 0.15 150); background: oklch(0.72 0.15 150 / 0.14); }
+
   /* S/R tile grid (row 3), replacing the old .sr-row list on this page */
   .sr-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
   .sr-tile { background: oklch(0.22 0.007 250); border-radius: 8px; padding: 12px 12px; text-align: center; }
@@ -119,6 +128,7 @@
             <span class="label" style="margin:0;">XAU/USD</span>
             <span class="price mono" id="price" style="font-size:22px;">–</span>
             <span class="mono" id="change" style="font-size:13px; font-weight:600;"></span>
+            <span class="rsi-pill" id="rsi-pill" hidden></span>
             <button class="ai-refresh" id="chart-refresh" aria-label="รีเฟรชราคา" style="margin-left:auto;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 11A8 8 0 1 0 18.6 16 M20 5v6h-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>

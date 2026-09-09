@@ -63,6 +63,36 @@ export function calculateEMA(candles: Candle[], period: number): number | undefi
   return ema;
 }
 
+/**
+ * Wilder's RSI (Relative Strength Index), the standard momentum oscillator —
+ * 0-100, >=70 conventionally read as overbought, <=30 as oversold. Needs
+ * `period + 1` closes (default period 14, so 15 candles) to produce a first
+ * value; returns undefined if there isn't enough history yet, same
+ * convention as calculateEMA() above.
+ */
+export function calculateRSI(candles: Candle[], period = 14): number | undefined {
+  if (candles.length < period + 1) return undefined;
+
+  const changes: number[] = [];
+  for (let i = 1; i < candles.length; i++) changes.push(candles[i].close - candles[i - 1].close);
+
+  // Seed with a simple average over the first `period` changes, then apply
+  // Wilder's smoothing (equivalent to an EMA with alpha = 1/period) for the rest.
+  let avgGain = avg(changes.slice(0, period).map((d) => Math.max(d, 0)));
+  let avgLoss = avg(changes.slice(0, period).map((d) => Math.max(-d, 0)));
+
+  for (let i = period; i < changes.length; i++) {
+    const gain = Math.max(changes[i], 0);
+    const loss = Math.max(-changes[i], 0);
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+  }
+
+  if (avgLoss === 0) return 100; // no losses at all in the window — maximally overbought
+  const rs = avgGain / avgLoss;
+  return 100 - 100 / (1 + rs);
+}
+
 interface VolumeProfile {
   poc: number; // Point of Control — price bin with the most volume
   vah: number; // Value Area High

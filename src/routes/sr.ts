@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env, Timeframe } from "../types";
 import { getCandles, getPreviousDayCandle } from "../lib/candles-db";
-import { buildSRLevels, pickNearestLevels } from "../lib/sr-engine";
+import { buildSRLevels, calculateRSI, pickNearestLevels } from "../lib/sr-engine";
 import { backfillGoldCandles, getCachedGoldPrice, refreshGoldTail } from "../lib/gold-refresh";
 
 export const srRoute = new Hono<{ Bindings: Env }>();
@@ -29,8 +29,9 @@ srRoute.get("/gold", async (c) => {
     const previousDayCandle = await getPreviousDayCandle(c.env, GOLD_SYMBOL);
     const { price: currentPrice } = await getCachedGoldPrice(c.env);
     const levels = pickNearestLevels(buildSRLevels(candles, previousDayCandle, currentPrice), currentPrice);
+    const rsi = calculateRSI(candles);
 
-    return c.json({ symbol: GOLD_SYMBOL, timeframe: tf, currentPrice, levels });
+    return c.json({ symbol: GOLD_SYMBOL, timeframe: tf, currentPrice, levels, rsi: rsi !== undefined ? Math.round(rsi * 10) / 10 : null });
   } catch (err) {
     return c.json({ error: "upstream_fetch_failed", message: (err as Error).message }, 502);
   }

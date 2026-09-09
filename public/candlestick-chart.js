@@ -16,6 +16,14 @@
  * Shared by the gold dashboard and the Thai stock dashboard.
  */
 
+/** rgb(r, g, b) -> rgba(r, g, b, alpha). Assumes resolveColor()'s fully-opaque output shape. */
+function withAlpha(rgbString, alpha) {
+  const m = rgbString.match(/rgba?\(([^)]+)\)/);
+  if (!m) return rgbString;
+  const [r, g, b] = m[1].split(",").map((s) => s.trim());
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 const _colorCache = {};
 /**
  * Resolves an oklch() (or any CSS color) string to a concrete rgb()/rgba().
@@ -95,14 +103,33 @@ function renderCandlestickChart(container, candles, levels, currentPrice) {
 
   series.setData(candles.map((c) => ({ time: c.ts, open: c.open, high: c.high, low: c.low, close: c.close })));
 
+  // Strength-aware styling (levels carry `strength` 1-5 from confluence
+  // across methods — see sr-engine.ts) so the strongest levels visually pop
+  // and the weaker ones fade back, instead of every line looking identical.
+  // Only the single strongest level per side gets an on-chart text label —
+  // with up to 4 levels/side this close together (common on gold's tight
+  // range), labelling all of them stacked up unreadable "แนวต้าน แนวต้าน
+  // แนวต้าน..." on the price axis; the rest still draw as a plain colored
+  // line (still findable in the tile grid below with exact price + methods).
+  const strongestPerSide = { support: null, resistance: null };
   for (const lvl of levels || []) {
+    const cur = strongestPerSide[lvl.type];
+    if (!cur || lvl.strength > cur.strength) strongestPerSide[lvl.type] = lvl;
+  }
+
+  for (const lvl of levels || []) {
+    const strength = lvl.strength ?? 1; // 1-5
+    const alpha = 0.4 + (strength / 5) * 0.6; // 0.52 - 1.0
+    const baseColor = lvl.type === "resistance" ? RED : GREEN;
+    const isStrongest = strongestPerSide[lvl.type] === lvl;
+
     series.createPriceLine({
       price: lvl.price,
-      color: lvl.type === "resistance" ? RED : GREEN,
-      lineWidth: 1,
+      color: withAlpha(baseColor, alpha),
+      lineWidth: strength >= 4 ? 2 : 1,
       lineStyle: LightweightCharts.LineStyle.Dashed,
-      axisLabelVisible: true,
-      title: lvl.type === "resistance" ? "แนวต้าน" : "แนวรับ",
+      axisLabelVisible: isStrongest,
+      title: isStrongest ? (lvl.type === "resistance" ? "แนวต้าน" : "แนวรับ") : "",
     });
   }
 

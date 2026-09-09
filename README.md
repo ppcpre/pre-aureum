@@ -99,6 +99,11 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - Frontend: fetch ครั้งเดียวตอนเปิดหน้า/รีเฟรช ได้ข้อมูลครบ 5 timeframe มาพร้อมกัน — สลับปุ่ม timeframe บนกราฟแค่ **เปลี่ยน badge ที่โชว์อยู่** (re-render จาก data เดิมในมือ) ไม่ยิง fetch ใหม่ทุกครั้งที่กด tab
   - ออกแบบผ่าน mockup 4 รอบก่อนเขียนโค้ดจริง (การ์ดเดี่ยว → in-context → compact คู่กับสรุปทอง → จัดแถวใหม่เป็น 3 แถวตามที่ขอสุดท้าย) — Dashboard ทองตอนนี้เป็น 3 แถว: (1) สรุปทองประจำวัน + สัญญาณซื้อ-ขาย คู่กัน (2) กราฟราคา เต็มความกว้าง (3) แนวสำคัญใกล้ราคา เต็มความกว้าง เปลี่ยนจาก list เป็นตาราง tile 4 ช่อง ให้เห็นแนวรับ-ต้านหลายระดับพร้อมกันชัดเจนขึ้น (สไตล์เปลี่ยนเฉพาะ CSS ใน `index.html` เอง ไม่แตะ `styles.css` ที่ใช้ร่วมกับ Dashboard หุ้นไทย กันกระทบหน้าอื่น)
   - **⚠️ ข้อจำกัดที่บอกตรงๆ**: EMA200 ต้องมีแท่งเทียนอย่างน้อย 200 แท่งถึงจะคำนวณได้ ตอนนี้ D1 ยังไม่มีประวัติยาวขนาดนั้นในทุก timeframe เสมอไป — timeframe ที่ยังไม่มี EMA200 จะได้คะแนนเทรนด์เป็น 0 เสมอ (ไม่ผ่านเงื่อนไขนั้น) ทำให้คะแนนสูงสุดที่เป็นไปได้ตอนนี้อยู่ราว 67/100 ไม่ใช่ 100 เต็ม — ไม่ใช่บั๊ก แต่เป็นข้อจำกัดของข้อมูลย้อนหลังที่มี จะดีขึ้นเองเมื่อ D1 สะสมแท่งเทียนมากพอ
+- ✅ **RSI(14) + ปรับเส้นแนวรับ-ต้านบนกราฟให้อ่านง่ายขึ้น (2026-09-09)**: ตามที่ถาม/ขอ ("โมเมนตัม (RSI) และปริมาณเทรด มีข้อมูลมาแสดงหรือยัง ... design เส้นกรอบแนวรับ แนวต้านมาหน่อย")
+  - **RSI**: เพิ่ม `calculateRSI()` ใน `sr-engine.ts` (Wilder's smoothing มาตรฐาน period 14, คำนวณได้จากแค่ราคาปิดล้วนๆ ไม่ต้องพึ่ง volume) ต่อจากนี้ `GET /api/sr/gold` คืน field `rsi` เพิ่ม (ปัดทศนิยม 1 ตำแหน่ง, `null` ถ้าแท่งเทียนไม่พอ) — หน้า Dashboard ทองโชว์เป็น pill "RSI XX" ข้างราคา: สีแดงถ้า ≥70 (overbought), สีเขียวถ้า ≤30 (oversold), เทาปกติถ้ากลางๆ
+  - **ปริมาณเทรด (Volume)**: **ยังไม่มี** — เช็คจาก response จริงของ Twelve Data แล้ว ทุกแท่งเทียนทอง `volume: null` เพราะเป็นราคา spot/CFD (OTC) ไม่มี volume จริงให้รายงาน (โค้ด `buildVolumeProfile` เขียนรองรับไว้แล้วตั้งแต่ M2 แต่จะ return "ไม่มีข้อมูล" เสมอสำหรับทอง) — ผู้ใช้เลือกไม่ทำต่อตอนนี้ (ต้องเปลี่ยน provider ถึงจะได้ volume จริง)
+  - **เส้นแนวรับ-ต้านบนกราฟ**: ใช้ field `strength` (1-5, มีอยู่แล้วจาก `sr-engine.ts`, ยิ่งมีหลาย method ยืนยันพร้อมกันยิ่งสูง) ปรับสีเข้ม/จางตามความแข็งแรงของแนว (opacity 0.52-1.0) และโชว์ label ข้อความบนแกนราคาแค่ **แนวที่แข็งแรงที่สุดฝั่งละ 1 เส้น** (ที่เหลือยังคงเป็นเส้นบางสีเดิม แต่ไม่มี label) — ก่อนหน้านี้แนวรับ-ต้าน 4 ระดับ/ฝั่งที่ราคาใกล้กันมากจะมี label "แนวต้าน"/"แนวรับ" ซ้อนกันเป็นแถวยาวอ่านยาก ยืนยันจากภาพหน้าจอจริงที่ผู้ใช้ส่งมา
+  - ทดสอบยืนยันแล้วบน production ทั้ง desktop และ mobile: RSI pill ขึ้นค่าจริงถูกสี ไม่มี label ซ้อนกันบนกราฟอีกต่อไป
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
 - ⬜ ~~Scalp Mode (poll ทุก 10-15 วิ)~~ — เลิกทำแนวคิดนี้แล้ว (2026-09-08) หลังเปลี่ยนราคาทองเป็น on-demand: ไม่มี "โหมด poll แบบ fixed interval" อีกต่อไป (ดูหัวข้อ M1 ด้านบน) ถ้าอยากได้ความถี่สูงขึ้นตอนมีคนเปิดแอปอยู่ ให้ลด `REFRESH_COOLDOWN_SECONDS` ใน `lib/gold-refresh.ts` แทน (ตอนนี้ 1800 วิ — ปรับขึ้นจาก 240 วิเดิมหลังชนโควตา ดูหัวข้อ M1 ด้านบน)
 
@@ -175,7 +180,7 @@ src/
     stock-symbols.ts Watchlist หุ้นไทย SET50 เต็มชุด (50 ตัว) + isValidSymbolFormat() (ไม่ผูก symbol นอก watchlist)
     screener.ts      Logic กรอง gainer/loser/near_support/breakout
     zone-finder.ts   Confluence checklist สำหรับ Admin Zone Finder (ทอง)
-    sr-engine.ts     Pivot Points, Swing High/Low, EMA50/200, Volume Profile, pickNearestLevels
+    sr-engine.ts     Pivot Points, Swing High/Low, EMA50/200, RSI(14), Volume Profile (no data for gold — no volume field), pickNearestLevels
     candles-db.ts    D1 read/write helper (ใช้ร่วมกันทองและหุ้นไทย)
     kv-cache.ts      KV read/write helper
     rss.ts           RSS feed fetch + parse (fast-xml-parser)
