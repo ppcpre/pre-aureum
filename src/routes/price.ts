@@ -1,8 +1,7 @@
 import { Hono } from "hono";
 import type { Env, Timeframe } from "../types";
-import { fetchTimeSeries } from "../lib/twelvedata";
-import { getCandles, upsertCandles } from "../lib/candles-db";
-import { getCachedGoldPrice, refreshGoldTail } from "../lib/gold-refresh";
+import { getCandles } from "../lib/candles-db";
+import { backfillGoldCandles, getCachedGoldPrice, refreshGoldTail } from "../lib/gold-refresh";
 
 export const priceRoute = new Hono<{ Bindings: Env }>();
 
@@ -25,8 +24,7 @@ priceRoute.get("/gold/history", async (c) => {
   if (candles.length === 0) {
     try {
       // Nothing stored yet for this timeframe — backfill the full range once.
-      candles = await fetchTimeSeries(c.env, GOLD_SYMBOL, tf, 100);
-      await upsertCandles(c.env.DB, GOLD_SYMBOL, tf, candles);
+      candles = await backfillGoldCandles(c.env, tf, 100);
     } catch (err) {
       return c.json({ error: "upstream_fetch_failed", message: (err as Error).message }, 502);
     }

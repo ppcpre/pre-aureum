@@ -1,9 +1,8 @@
 import { Hono } from "hono";
 import type { Env, Timeframe } from "../types";
-import { fetchTimeSeries } from "../lib/twelvedata";
-import { getCandles, getPreviousDayCandle, upsertCandles } from "../lib/candles-db";
+import { getCandles, getPreviousDayCandle } from "../lib/candles-db";
 import { buildSRLevels, pickNearestLevels } from "../lib/sr-engine";
-import { getCachedGoldPrice, refreshGoldTail } from "../lib/gold-refresh";
+import { backfillGoldCandles, getCachedGoldPrice, refreshGoldTail } from "../lib/gold-refresh";
 
 export const srRoute = new Hono<{ Bindings: Env }>();
 
@@ -16,8 +15,7 @@ srRoute.get("/gold", async (c) => {
   try {
     let candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 150);
     if (candles.length === 0) {
-      candles = await fetchTimeSeries(c.env, GOLD_SYMBOL, tf, 150);
-      await upsertCandles(c.env.DB, GOLD_SYMBOL, tf, candles);
+      candles = await backfillGoldCandles(c.env, tf, 150);
     } else {
       // On-demand top-up (throttled, see gold-refresh.ts) instead of a standing cron.
       await refreshGoldTail(c.env, tf);

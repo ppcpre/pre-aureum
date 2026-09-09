@@ -19,6 +19,39 @@ const LATEST_PRICE_KEY = "price:XAU_USD:latest";
 // lasts once traffic (or repeated testing) is frequent.
 const LATEST_PRICE_TTL_SECONDS = 300;
 
+// Not just a "cache successes" TTL — also how long a FAILED fetch backs off
+// before the next caller is allowed to retry live. Short (60s) so it still
+// recovers quickly once the real problem (quota, network, whatever) clears.
+//
+// ⚠️ Added 2026-09-09 after finding this gap in the Cloudflare request log:
+// getCachedGoldPrice originally only cached on success, so a failure was
+// retried live on EVERY call — the frontend's 60s auto-poll (a page just
+// left open) meant a fresh Twelve Data call, and a fresh error, every single
+// minute all day during Twelve Data's quota outage, instead of backing off
+// after the first failure. See withFailureBackoff below.
+const FAILURE_COOLDOWN_SECONDS = 60;
+
+/**
+ * Wraps a live fetch with a KV cooldown that's set on FAILURE, not just
+ * success — mirrors refreshGoldTail's cooldown-before-attempting pattern
+ * below, generalized so getCachedGoldPrice and the cold-start candle
+ * backfills in routes/price.ts and routes/sr.ts all back off the same way
+ * instead of each caller retrying live during an outage. Re-throws the
+ * original error after recording the cooldown, so callers keep their
+ * normal try/catch → 502 handling.
+ */
+async function withFailureBackoff<T>(env: Env, cooldownKey: string, fn: () => Promise<T>): Promise<T> {
+  if (await env.CACHE.get(cooldownKey)) {
+    throw new Error("Temporarily unavailable — a recent fetch failed, backing off before retrying");
+  }
+  try {
+    return await fn();
+  } catch (err) {
+    await env.CACHE.put(cooldownKey, "1", { expirationTtl: FAILURE_COOLDOWN_SECONDS });
+    throw err;
+  }
+}
+
 /**
  * Shared by routes/price.ts and routes/sr.ts so both read the same cached
  * spot price instead of each doing their own live fetch. Returns `ts` as
@@ -29,10 +62,27 @@ export async function getCachedGoldPrice(env: Env): Promise<{ price: number; ts:
   const cached = await getJSON<{ price: number; ts: number }>(env.CACHE, LATEST_PRICE_KEY);
   if (cached) return cached;
 
-  const price = await fetchLatestPrice(env, GOLD_SYMBOL);
-  const payload = { price, ts: Math.floor(Date.now() / 1000) };
-  await putJSON(env.CACHE, LATEST_PRICE_KEY, payload, LATEST_PRICE_TTL_SECONDS);
-  return payload;
+  return withFailureBackoff(env, `${LATEST_PRICE_KEY}:failure-cooldown`, async () => {
+    const price = await fetchLatestPrice(env, GOLD_SYMBOL);
+    const payload = { price, ts: Math.floor(Date.now() / 1000) };
+    await putJSON(env.CACHE, LATEST_PRICE_KEY, payload, LATEST_PRICE_TTL_SECONDS);
+    return payload;
+  });
+}
+
+/**
+ * One-time full-range backfill for a timeframe that has no candles in D1
+ * yet — used by routes/price.ts and routes/sr.ts. Goes through the same
+ * failure backoff as getCachedGoldPrice: without it, an empty D1 table plus
+ * a failing Twelve Data call meant every single request re-attempted the
+ * full backfill live, uncached, with no cooldown at all.
+ */
+export async function backfillGoldCandles(env: Env, tf: Timeframe, outputsize: number) {
+  return withFailureBackoff(env, `gold-backfill:${tf}:failure-cooldown`, async () => {
+    const candles = await fetchTimeSeries(env, GOLD_SYMBOL, tf, outputsize);
+    await upsertCandles(env.DB, GOLD_SYMBOL, tf, candles);
+    return candles;
+  });
 }
 
 // How long a tail-refresh "counts" before the next request is allowed to
