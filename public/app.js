@@ -183,8 +183,57 @@ async function init() {
   loadAiSummary(); // independent of price/chart — don't block the rest of the page on it
 }
 
-init();
-setInterval(async () => {
+// Auto-refresh: paced, quota-conscious, and time-bounded (per user request
+// 2026-09-09 — "ถ้าไม่เปิดหน้า browser ไว้ไม่ต้องยิง, หรือเปิดค้างไม่เกิน
+// 5 นาที ขึ้น popup ให้ refresh"):
+//   - skips the fetch entirely while the tab is hidden/backgrounded — a tab
+//     left open in another window shouldn't keep spending Twelve Data calls
+//   - stops after 5 minutes of wall-clock time regardless of visibility, so
+//     a tab forgotten open for hours can't silently poll all day — instead
+//     shows a banner asking for a manual refresh (which also restarts the
+//     5-minute window)
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
+const AUTO_REFRESH_MAX_DURATION_MS = 5 * 60_000;
+
+const staleBannerEl = document.getElementById("stale-banner");
+const staleRefreshBtnEl = document.getElementById("stale-refresh-btn");
+
+let autoRefreshTimer = null;
+let autoRefreshStartedAt = 0;
+
+function stopAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = null;
+}
+
+function showStaleBanner() {
+  stopAutoRefresh();
+  staleBannerEl.classList.add("show");
+}
+
+function startAutoRefresh() {
+  autoRefreshStartedAt = Date.now();
+  staleBannerEl.classList.remove("show");
+  stopAutoRefresh();
+  autoRefreshTimer = setInterval(() => {
+    if (document.visibilityState !== "visible") return; // backgrounded — skip this tick, no fetch spent
+
+    if (Date.now() - autoRefreshStartedAt >= AUTO_REFRESH_MAX_DURATION_MS) {
+      showStaleBanner();
+      return;
+    }
+
+    loadPrice();
+    loadChartAndSR(currentTf);
+  }, AUTO_REFRESH_INTERVAL_MS);
+}
+
+staleRefreshBtnEl.addEventListener("click", async () => {
+  staleRefreshBtnEl.disabled = true;
   await loadPrice();
-  loadChartAndSR(currentTf);
-}, 60_000);
+  await loadChartAndSR(currentTf);
+  staleRefreshBtnEl.disabled = false;
+  startAutoRefresh(); // manual refresh resets the 5-minute window
+});
+
+init().then(startAutoRefresh);
