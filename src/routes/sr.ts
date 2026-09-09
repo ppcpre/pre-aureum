@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { Env, Timeframe } from "../types";
-import { getCandles, getPreviousDayCandle } from "../lib/candles-db";
+import { getPreviousDayCandle } from "../lib/candles-db";
 import { buildSRLevels, calculateRSI, pickNearestLevels } from "../lib/sr-engine";
-import { backfillGoldCandles, getCachedGoldPrice, refreshGoldTail } from "../lib/gold-refresh";
+import { getCachedGoldPrice, getGoldCandles } from "../lib/gold-refresh";
 
 export const srRoute = new Hono<{ Bindings: Env }>();
 
@@ -13,18 +13,19 @@ srRoute.get("/gold", async (c) => {
   const tf = (c.req.query("tf") ?? "H4") as Timeframe;
 
   try {
-    let candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 150);
-    if (candles.length === 0) {
-      candles = await backfillGoldCandles(c.env, tf, 150);
-    } else {
-      // On-demand top-up (throttled, see gold-refresh.ts) instead of a standing cron.
-      await refreshGoldTail(c.env, tf);
-      candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 150);
-    }
+    const candles = await getGoldCandles(c.env, tf, 150);
 
     // Pivot points always need the daily candle regardless of which timeframe
     // is being viewed — keep it topped up too (no-op if tf itself is "D1").
-    if (tf !== "D1") await refreshGoldTail(c.env, "D1");
+    // Best-effort: this is a side channel for pivot calc, not what the caller
+    // actually asked to view, so a failure here shouldn't 502 the whole request.
+    if (tf !== "D1") {
+      try {
+        await getGoldCandles(c.env, "D1", 150);
+      } catch (err) {
+        console.error("[sr] D1 top-up failed:", err);
+      }
+    }
 
     const previousDayCandle = await getPreviousDayCandle(c.env, GOLD_SYMBOL);
     const { price: currentPrice } = await getCachedGoldPrice(c.env);

@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import type { Env, Timeframe } from "../types";
-import { getCandles } from "../lib/candles-db";
-import { backfillGoldCandles, getCachedGoldPrice, refreshGoldTail } from "../lib/gold-refresh";
+import { getCachedGoldPrice, getGoldCandles } from "../lib/gold-refresh";
 
 export const priceRoute = new Hono<{ Bindings: Env }>();
 
@@ -20,20 +19,11 @@ priceRoute.get("/gold", async (c) => {
 priceRoute.get("/gold/history", async (c) => {
   const tf = (c.req.query("tf") ?? "H4") as Timeframe;
 
-  let candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 100);
-  if (candles.length === 0) {
-    try {
-      // Nothing stored yet for this timeframe — backfill the full range once.
-      candles = await backfillGoldCandles(c.env, tf, 100);
-    } catch (err) {
-      return c.json({ error: "upstream_fetch_failed", message: (err as Error).message }, 502);
-    }
-  } else {
-    // Already have history — top up just the last few candles (throttled per
-    // timeframe, see gold-refresh.ts) instead of a standing cron, so the
-    // chart only makes a live API call when someone is actually viewing it.
-    await refreshGoldTail(c.env, tf);
-    candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 100);
+  let candles;
+  try {
+    candles = await getGoldCandles(c.env, tf, 100);
+  } catch (err) {
+    return c.json({ error: "upstream_fetch_failed", message: (err as Error).message }, 502);
   }
 
   return c.json({ symbol: GOLD_SYMBOL, timeframe: tf, candles });

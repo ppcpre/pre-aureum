@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import type { Env, Timeframe } from "../types";
-import { getCandles } from "../lib/candles-db";
-import { backfillGoldCandles, refreshGoldTail } from "../lib/gold-refresh";
+import { getGoldCandles } from "../lib/gold-refresh";
 import { computeTrendAnalysis } from "../lib/trend-analysis";
 
 export const trendAnalysisRoute = new Hono<{ Bindings: Env }>();
@@ -16,14 +15,7 @@ trendAnalysisRoute.get("/gold", async (c) => {
   const tf = (c.req.query("tf") ?? "W1") as Timeframe;
 
   try {
-    let candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 150);
-    if (candles.length === 0) {
-      candles = await backfillGoldCandles(c.env, tf, 150);
-    } else {
-      await refreshGoldTail(c.env, tf);
-      candles = await getCandles(c.env.DB, GOLD_SYMBOL, tf, 150);
-    }
-
+    const candles = await getGoldCandles(c.env, tf, 150);
     const analysis = computeTrendAnalysis(candles);
 
     return c.json({ symbol: GOLD_SYMBOL, timeframe: tf, candles, ...analysis });

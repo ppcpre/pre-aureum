@@ -1,7 +1,7 @@
-import type { Env, Timeframe } from "../types";
-import { getCandles, getPreviousDayCandle } from "./candles-db";
+import type { Candle, Env, Timeframe } from "../types";
+import { getPreviousDayCandle } from "./candles-db";
 import { buildSRLevels, calculateEMA } from "./sr-engine";
-import { backfillGoldCandles, getCachedGoldPrice, refreshGoldTail } from "./gold-refresh";
+import { getCachedGoldPrice, getGoldCandles } from "./gold-refresh";
 
 const GOLD_SYMBOL = "XAU/USD";
 const ALL_TIMEFRAMES: Timeframe[] = ["M15", "H1", "H4", "D1", "W1"];
@@ -28,16 +28,11 @@ export interface TimeframeSignal {
  * only costs at most 5 throttled tail-refreshes, not 5 uncached live calls.
  */
 async function computeOneTimeframe(env: Env, tf: Timeframe, currentPrice: number): Promise<TimeframeSignal> {
-  let candles = await getCandles(env.DB, GOLD_SYMBOL, tf, 150);
-  if (candles.length === 0) {
-    try {
-      candles = await backfillGoldCandles(env, tf, 150);
-    } catch {
-      candles = [];
-    }
-  } else {
-    await refreshGoldTail(env, tf);
-    candles = await getCandles(env.DB, GOLD_SYMBOL, tf, 150);
+  let candles: Candle[];
+  try {
+    candles = await getGoldCandles(env, tf, 150);
+  } catch {
+    candles = [];
   }
 
   const previousDayCandle = await getPreviousDayCandle(env, GOLD_SYMBOL);
@@ -67,7 +62,12 @@ export async function computeGoldSignals(env: Env): Promise<TimeframeSignal[]> {
 
   // D1 backs pivot points for every timeframe's score (same convention as
   // routes/sr.ts) — top it up once up front instead of once per timeframe.
-  await refreshGoldTail(env, "D1");
+  // Best-effort: this is a side channel, not what's actually being scored.
+  try {
+    await getGoldCandles(env, "D1", 150);
+  } catch (err) {
+    console.error("[gold-signal] D1 top-up failed:", err);
+  }
 
   return Promise.all(ALL_TIMEFRAMES.map((tf) => computeOneTimeframe(env, tf, currentPrice)));
 }

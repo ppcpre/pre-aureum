@@ -1,6 +1,6 @@
-import type { Env, Timeframe } from "../types";
+import type { Candle, Env, Timeframe } from "../types";
 import { fetchLatestPrice, fetchTimeSeries } from "./twelvedata";
-import { upsertCandles } from "./candles-db";
+import { getCandles, upsertCandles } from "./candles-db";
 import { getJSON, putJSON } from "./kv-cache";
 
 const GOLD_SYMBOL = "XAU/USD";
@@ -122,4 +122,46 @@ export async function refreshGoldTail(env: Env, tf: Timeframe): Promise<void> {
   } catch (err) {
     console.error(`[gold-refresh] failed for ${tf}:`, err);
   }
+}
+
+// Below this, a timeframe's D1 row count can never grow past what
+// refreshGoldTail's 5-candle tail-refresh adds — used to tell "cold start,
+// needs a real backfill" apart from "already has history, just top up".
+//
+// ⚠️ Added 2026-09-09 after finding gold's own D1 (daily) timeframe stuck at
+// just 8 rows in production despite being live for days: every caller's
+// `candles.length === 0 ? backfill : tail-refresh` check (price.ts, sr.ts,
+// gold-signal.ts, trend-analysis.ts — 4 separate copies of the same logic)
+// only ever backfilled on a TRULY empty table. D1 had picked up a handful of
+// rows early on (before this pattern existed) and then never qualified for
+// "empty" again — refreshGoldTail kept it topped up 5 rows at a time,
+// forever, but nothing ever fetched the deeper history. Centralizing the
+// check here (instead of a 5th copy) fixes it once for every caller.
+const MIN_HEALTHY_CANDLES = 50;
+
+/**
+ * The one function gold routes should call for "give me up to `count`
+ * candles for this timeframe, refreshed as needed" — replaces each route's
+ * own copy of the cold-start-backfill-vs-tail-refresh branch above.
+ */
+export async function getGoldCandles(env: Env, tf: Timeframe, count: number): Promise<Candle[]> {
+  const candles = await getCandles(env.DB, GOLD_SYMBOL, tf, count);
+
+  if (candles.length < MIN_HEALTHY_CANDLES) {
+    try {
+      return await backfillGoldCandles(env, tf, count);
+    } catch (err) {
+      // Nothing at all to fall back to — let the caller's existing
+      // try/catch → 502 handle it, same as before this was centralized.
+      if (candles.length === 0) throw err;
+      // Already had *some* candles (just not enough) — degrade to those
+      // rather than erroring, matching refreshGoldTail's best-effort
+      // philosophy elsewhere in this file.
+      console.error(`[gold-refresh] backfill failed for ${tf}, falling back to ${candles.length} existing candle(s):`, err);
+      return candles;
+    }
+  }
+
+  await refreshGoldTail(env, tf);
+  return getCandles(env.DB, GOLD_SYMBOL, tf, count);
 }
