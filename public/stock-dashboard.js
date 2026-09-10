@@ -28,6 +28,7 @@ const aiSummaryChipsEl = document.getElementById("ai-summary-chips");
 const aiSummaryTsEl = document.getElementById("ai-summary-ts");
 const aiSummaryRefreshEl = document.getElementById("ai-summary-refresh");
 const setMarketStatusEl = document.getElementById("set-market-status");
+const setHolidayNoticeEl = document.getElementById("set-holiday-notice");
 
 const TAG_LABEL = { resistance: "ทะลุแนวต้าน", support: "ใกล้แนวรับ", gainer: "พุ่งแรง", loser: "ร่วงแรง" };
 
@@ -37,6 +38,7 @@ function chatLink(prompt) {
 
 function renderStockSummary(data) {
   applyMarketStatus(setMarketStatusEl, getSetMarketStatus());
+  applyHolidayNotice(setHolidayNoticeEl, SET_HOLIDAYS_2026);
 
   const { stockSignalCount, stockWatchlistSize } = data.stats;
   aiSummaryStatsEl.innerHTML = `

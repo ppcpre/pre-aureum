@@ -13,6 +13,7 @@ const aiSummaryChipsEl = document.getElementById("ai-summary-chips");
 const aiSummaryTsEl = document.getElementById("ai-summary-ts");
 const aiSummaryRefreshEl = document.getElementById("ai-summary-refresh");
 const goldMarketStatusEl = document.getElementById("gold-market-status");
+const goldHolidayNoticeEl = document.getElementById("gold-holiday-notice");
 
 function chatLink(prompt) {
   return `/admin/chat?q=${encodeURIComponent(prompt)}`;
@@ -23,6 +24,7 @@ function chatLink(prompt) {
 // /api/dashboard-summary so they stay in sync from one shared digest.
 function renderAiSummary(data) {
   applyMarketStatus(goldMarketStatusEl, getGoldMarketStatus());
+  applyHolidayNotice(goldHolidayNoticeEl, GOLD_HOLIDAYS_2026);
 
   aiSummarySubEl.className = data.gold.available ? "digest-sub" : "digest-sub pending";
   aiSummarySubEl.innerHTML = data.gold.available ? data.gold.narrative : pendingBadge(data.gold.reason);
