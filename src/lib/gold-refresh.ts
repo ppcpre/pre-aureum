@@ -137,7 +137,22 @@ export async function refreshGoldTail(env: Env, tf: Timeframe): Promise<void> {
 // "empty" again — refreshGoldTail kept it topped up 5 rows at a time,
 // forever, but nothing ever fetched the deeper history. Centralizing the
 // check here (instead of a 5th copy) fixes it once for every caller.
-const MIN_HEALTHY_CANDLES = 50;
+// How many candles S/R + signal callers should request. Needs to clear 200
+// so calculateEMA(candles, 200) — EMA200, the "trend" leg of both the Zone
+// Finder bias score and the multi-timeframe buy/sell signal — can actually
+// produce a value instead of always failing that leg and capping every
+// signal at ~67/100 (added slack to 210, added 2026-09-09 per user request:
+// "ทำ EMA200").
+export const GOLD_CANDLE_COUNT = 210;
+
+// ⚠️ Set to 200 (not some smaller "good enough" number like the original 50)
+// specifically so a timeframe already sitting at exactly the OLD healthy
+// level (150, from before GOLD_CANDLE_COUNT existed) still re-qualifies for
+// one more real backfill up to 210 — otherwise every already-populated
+// timeframe would stay capped at 150 forever (still short of the 200 EMA200
+// needs) since the tail-refresh path only ever adds 5 candles at a time and
+// never re-backfills once a timeframe is judged "healthy".
+const MIN_HEALTHY_CANDLES = 200;
 
 /**
  * The one function gold routes should call for "give me up to `count`

@@ -2,7 +2,7 @@ import type { Env, Timeframe } from "../types";
 import * as yahoo from "./yahoo-finance";
 import { getStockPrice } from "./stock-price";
 import { getCandles, getPreviousDayCandle, upsertCandles } from "./candles-db";
-import { getCachedGoldPrice, getGoldCandles } from "./gold-refresh";
+import { GOLD_CANDLE_COUNT, getCachedGoldPrice, getGoldCandles } from "./gold-refresh";
 import { buildSRLevels, pickNearestLevels } from "./sr-engine";
 import { isKnownSymbol, STOCK_WATCHLIST } from "./stock-symbols";
 import { buildScreener } from "./screener";
@@ -103,7 +103,7 @@ export async function executeChatTool(env: Env, name: string, args: Record<strin
       case "get_gold_support_resistance": {
         const timeframe = args.timeframe as Timeframe;
         // Same shared cache/cooldown/backfill as routes/sr.ts — see note above.
-        const candles = await getGoldCandles(env, timeframe, 150);
+        const candles = await getGoldCandles(env, timeframe, GOLD_CANDLE_COUNT);
         const previousDayCandle = await getPreviousDayCandle(env, GOLD_SYMBOL);
         const { price: currentPrice } = await getCachedGoldPrice(env);
         const levels = pickNearestLevels(buildSRLevels(candles, previousDayCandle, currentPrice), currentPrice);

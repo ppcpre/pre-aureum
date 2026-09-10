@@ -1,7 +1,7 @@
 import type { Candle, Env, Timeframe } from "../types";
 import { getPreviousDayCandle } from "./candles-db";
 import { buildSRLevels, calculateEMA } from "./sr-engine";
-import { getCachedGoldPrice, getGoldCandles } from "./gold-refresh";
+import { GOLD_CANDLE_COUNT, getCachedGoldPrice, getGoldCandles } from "./gold-refresh";
 
 const GOLD_SYMBOL = "XAU/USD";
 const ALL_TIMEFRAMES: Timeframe[] = ["M15", "H1", "H4", "D1", "W1"];
@@ -30,7 +30,7 @@ export interface TimeframeSignal {
 async function computeOneTimeframe(env: Env, tf: Timeframe, currentPrice: number): Promise<TimeframeSignal> {
   let candles: Candle[];
   try {
-    candles = await getGoldCandles(env, tf, 150);
+    candles = await getGoldCandles(env, tf, GOLD_CANDLE_COUNT);
   } catch {
     candles = [];
   }
@@ -64,7 +64,7 @@ export async function computeGoldSignals(env: Env): Promise<TimeframeSignal[]> {
   // routes/sr.ts) — top it up once up front instead of once per timeframe.
   // Best-effort: this is a side channel, not what's actually being scored.
   try {
-    await getGoldCandles(env, "D1", 150);
+    await getGoldCandles(env, "D1", GOLD_CANDLE_COUNT);
   } catch (err) {
     console.error("[gold-signal] D1 top-up failed:", err);
   }
