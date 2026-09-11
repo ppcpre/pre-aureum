@@ -52,15 +52,30 @@ export function findSwingPoints(candles: Candle[], lookback = 2): SwingPoint[] {
 
 /** Exponential moving average of closes; undefined if there aren't enough candles. */
 export function calculateEMA(candles: Candle[], period: number): number | undefined {
-  if (candles.length < period) return undefined;
+  const series = calculateEMASeries(candles, period);
+  return series[series.length - 1];
+}
+
+/**
+ * Same EMA as calculateEMA() above, but returns one value per candle
+ * (undefined for the first `period - 1` candles) instead of just the
+ * latest — for drawing EMA50/EMA200 as their own lines over time and
+ * detecting Golden/Death Cross points (see trend-analysis.ts), same
+ * convention as calculateRSISeries() below.
+ */
+export function calculateEMASeries(candles: Candle[], period: number): (number | undefined)[] {
+  const result = new Array<number | undefined>(candles.length).fill(undefined);
+  if (candles.length < period) return result;
 
   const k = 2 / (period + 1);
   let ema = avg(candles.slice(0, period).map((c) => c.close)); // seed with SMA
+  result[period - 1] = ema;
 
   for (let i = period; i < candles.length; i++) {
     ema = candles[i].close * k + ema * (1 - k);
+    result[i] = ema;
   }
-  return ema;
+  return result;
 }
 
 function rsiFromAvgs(avgGain: number, avgLoss: number): number {

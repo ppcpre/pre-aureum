@@ -51,7 +51,7 @@ function syncTimeScales(a, b) {
 }
 
 function renderCharts(data) {
-  const { candles, rsi, priceTrendlines, rsiTrendlines, rsiCrossings } = data;
+  const { candles, rsi, ema50, ema200, priceTrendlines, rsiTrendlines, rsiCrossings, emaCrossings } = data;
 
   if (priceChart) { priceChart.remove(); priceChart = null; }
   if (rsiChart) { rsiChart.remove(); rsiChart = null; }
@@ -69,6 +69,8 @@ function renderCharts(data) {
   const GOLD = resolveColor("oklch(0.75 0.14 85)");
   const BORDER = resolveColor("oklch(0.29 0.008 250)");
   const MUTED = resolveColor("oklch(0.60 0.01 250)");
+  const AMBER = resolveColor("oklch(0.78 0.15 70)"); // EMA50 — reacts faster, warmer/short-term
+  const EMA200_COLOR = resolveColor("oklch(0.68 0.13 250)"); // EMA200 — smoother, cooler/long-term
 
   const commonOptions = {
     layout: { background: { color: "transparent" }, textColor: MUTED, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 },
@@ -103,6 +105,28 @@ function renderCharts(data) {
   }
   addTrendLine(priceChart, priceTrendlines.resistance, RED);
   addTrendLine(priceChart, priceTrendlines.support, GREEN);
+
+  // --- EMA50/EMA200 overlay + Golden/Death Cross markers ---
+  let ema50Series = null;
+  if (ema50 && ema50.length > 0) {
+    ema50Series = priceChart.addLineSeries({ color: AMBER, lineWidth: 1.5, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    ema50Series.setData(ema50.map((p) => ({ time: p.ts, value: p.value })));
+  }
+  if (ema200 && ema200.length > 0) {
+    const ema200Series = priceChart.addLineSeries({ color: EMA200_COLOR, lineWidth: 1.5, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false });
+    ema200Series.setData(ema200.map((p) => ({ time: p.ts, value: p.value })));
+  }
+  if (ema50Series && emaCrossings && emaCrossings.length > 0) {
+    ema50Series.setMarkers(
+      emaCrossings.map((cr) => ({
+        time: cr.ts,
+        position: cr.direction === "golden" ? "belowBar" : "aboveBar",
+        color: cr.direction === "golden" ? GREEN : RED,
+        shape: cr.direction === "golden" ? "arrowUp" : "arrowDown",
+        text: cr.direction === "golden" ? "Golden Cross" : "Death Cross",
+      }))
+    );
+  }
 
   // --- RSI chart: oscillator line + its own trend channel + 30/50/70 refs + crossing markers ---
   rsiChart = LightweightCharts.createChart(rsiContainerEl, {
@@ -156,20 +180,33 @@ function renderCharts(data) {
   syncTimeScales(priceChart, rsiChart);
 }
 
-function renderCrossings(rsiCrossings) {
-  if (!rsiCrossings || rsiCrossings.length === 0) {
-    crossingListEl.innerHTML = pendingBadge("ยังไม่พบจุดตัด RSI=50 ในช่วงข้อมูลนี้");
+function renderCrossings(rsiCrossings, emaCrossings) {
+  const rsiItems = (rsiCrossings || []).map((cr) => ({
+    ts: cr.ts,
+    bullish: cr.direction === "up",
+    note: cr.direction === "up" ? "RSI ตัดขึ้นเหนือ 50 (โมเมนตัมเริ่มเป็นบวก)" : "RSI ตัดลงต่ำกว่า 50 (โมเมนตัมเริ่มเป็นลบ)",
+    value: cr.rsi.toFixed(1),
+  }));
+  const emaItems = (emaCrossings || []).map((cr) => ({
+    ts: cr.ts,
+    bullish: cr.direction === "golden",
+    note: cr.direction === "golden" ? "Golden Cross — EMA50 ตัดขึ้นเหนือ EMA200 (สัญญาณขาขึ้น)" : "Death Cross — EMA50 ตัดลงต่ำกว่า EMA200 (สัญญาณขาลง)",
+    value: cr.price.toFixed(2),
+  }));
+  const all = [...rsiItems, ...emaItems].sort((a, b) => b.ts - a.ts);
+
+  if (all.length === 0) {
+    crossingListEl.innerHTML = pendingBadge("ยังไม่พบจุดตัด RSI=50 หรือ EMA ในช่วงข้อมูลนี้");
     return;
   }
-  crossingListEl.innerHTML = [...rsiCrossings]
-    .reverse()
+  crossingListEl.innerHTML = all
     .map(
       (cr) => `
       <div class="crossing-item">
-        <span class="crossing-dot ${cr.direction}"></span>
+        <span class="crossing-dot ${cr.bullish ? "up" : "down"}"></span>
         <span class="crossing-date">${fmtDate(cr.ts)}</span>
-        <span class="crossing-note">${cr.direction === "up" ? "RSI ตัดขึ้นเหนือ 50 (โมเมนตัมเริ่มเป็นบวก)" : "RSI ตัดลงต่ำกว่า 50 (โมเมนตัมเริ่มเป็นลบ)"}</span>
-        <span class="crossing-rsi mono" style="color:${cr.direction === "up" ? "oklch(0.72 0.15 150)" : "oklch(0.65 0.18 25)"}">${cr.rsi.toFixed(1)}</span>
+        <span class="crossing-note">${cr.note}</span>
+        <span class="crossing-rsi mono" style="color:${cr.bullish ? "oklch(0.72 0.15 150)" : "oklch(0.65 0.18 25)"}">${cr.value}</span>
       </div>`
     )
     .join("");
@@ -208,7 +245,7 @@ async function loadTrendAnalysis(tf) {
     if (!res.ok) throw new Error(data.message || "fetch failed");
 
     renderCharts(data);
-    renderCrossings(data.rsiCrossings);
+    renderCrossings(data.rsiCrossings, data.emaCrossings);
     renderDivergences(data.divergences);
   } catch (err) {
     console.error("[trend-analysis] fetch failed:", err.message);

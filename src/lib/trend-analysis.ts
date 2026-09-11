@@ -1,5 +1,5 @@
 import type { Candle } from "../types";
-import { calculateRSISeries, findSwingPoints, type SwingPoint } from "./sr-engine";
+import { calculateEMASeries, calculateRSISeries, findSwingPoints, type SwingPoint } from "./sr-engine";
 
 export interface TrendLine {
   // Two endpoints spanning the full candle range (start ts, end ts) — enough
@@ -24,11 +24,20 @@ export interface Divergence {
   rsiAtSwing2: number;
 }
 
+export interface EMACross {
+  ts: number;
+  direction: "golden" | "death"; // EMA50 crossing above ("golden") / below ("death") EMA200
+  price: number; // close at the crossing candle — for a chart marker/label
+}
+
 export interface TrendAnalysis {
   rsi: { ts: number; value: number }[]; // one entry per candle that has enough history
+  ema50: { ts: number; value: number }[];
+  ema200: { ts: number; value: number }[];
   priceTrendlines: { resistance: TrendLine | null; support: TrendLine | null };
   rsiTrendlines: { resistance: TrendLine | null; support: TrendLine | null };
   rsiCrossings: RSICrossing[];
+  emaCrossings: EMACross[];
   divergences: Divergence[];
 }
 
@@ -249,6 +258,22 @@ function findRSICrossings(rsiSeries: { ts: number; value: number }[]): RSICrossi
   return crossings;
 }
 
+/** Golden Cross (EMA50 crosses above EMA200 — bullish) / Death Cross (crosses below — bearish). */
+function findEMACrossings(candles: Candle[], ema50Raw: (number | undefined)[], ema200Raw: (number | undefined)[]): EMACross[] {
+  const crossings: EMACross[] = [];
+  for (let i = 1; i < candles.length; i++) {
+    const prev50 = ema50Raw[i - 1];
+    const prev200 = ema200Raw[i - 1];
+    const cur50 = ema50Raw[i];
+    const cur200 = ema200Raw[i];
+    if (prev50 === undefined || prev200 === undefined || cur50 === undefined || cur200 === undefined) continue;
+
+    if (prev50 <= prev200 && cur50 > cur200) crossings.push({ ts: candles[i].ts, direction: "golden", price: candles[i].close });
+    else if (prev50 >= prev200 && cur50 < cur200) crossings.push({ ts: candles[i].ts, direction: "death", price: candles[i].close });
+  }
+  return crossings;
+}
+
 /**
  * Composes the primitives above into everything the trend-analysis page
  * needs: an RSI series, a price trend channel (support+resistance lines),
@@ -257,7 +282,16 @@ function findRSICrossings(rsiSeries: { ts: number; value: number }[]): RSICrossi
  */
 export function computeTrendAnalysis(candles: Candle[]): TrendAnalysis {
   if (candles.length < 2) {
-    return { rsi: [], priceTrendlines: { resistance: null, support: null }, rsiTrendlines: { resistance: null, support: null }, rsiCrossings: [], divergences: [] };
+    return {
+      rsi: [],
+      ema50: [],
+      ema200: [],
+      priceTrendlines: { resistance: null, support: null },
+      rsiTrendlines: { resistance: null, support: null },
+      rsiCrossings: [],
+      emaCrossings: [],
+      divergences: [],
+    };
   }
 
   const lastTs = candles[candles.length - 1].ts;
@@ -265,6 +299,11 @@ export function computeTrendAnalysis(candles: Candle[]): TrendAnalysis {
   const rsiSeriesRaw = calculateRSISeries(candles, 14);
   const rsi = candles.map((c, i) => ({ ts: c.ts, value: rsiSeriesRaw[i] })).filter((p): p is { ts: number; value: number } => p.value !== undefined);
   const rsiByTs = new Map(rsi.map((p) => [p.ts, p.value]));
+
+  const ema50Raw = calculateEMASeries(candles, 50);
+  const ema200Raw = calculateEMASeries(candles, 200);
+  const ema50 = candles.map((c, i) => ({ ts: c.ts, value: ema50Raw[i] })).filter((p): p is { ts: number; value: number } => p.value !== undefined);
+  const ema200 = candles.map((c, i) => ({ ts: c.ts, value: ema200Raw[i] })).filter((p): p is { ts: number; value: number } => p.value !== undefined);
 
   // lookback=3 (not sr-engine's shared default of 2) — fewer, more significant
   // swings specifically for trendline fitting: a 2-candle fractal is noisy
@@ -300,6 +339,8 @@ export function computeTrendAnalysis(candles: Candle[]): TrendAnalysis {
 
   return {
     rsi,
+    ema50,
+    ema200,
     priceTrendlines: {
       resistance: buildTrendLine(priceHighs, "upper", lastTs, priceClampMin, priceClampMax),
       support: buildTrendLine(priceLows, "lower", lastTs, priceClampMin, priceClampMax),
@@ -310,6 +351,7 @@ export function computeTrendAnalysis(candles: Candle[]): TrendAnalysis {
       support: buildTrendLine(rsiLows, "lower", lastTs, 0, 100),
     },
     rsiCrossings: findRSICrossings(rsi),
+    emaCrossings: findEMACrossings(candles, ema50Raw, ema200Raw),
     divergences: findDivergences(priceSwings, rsiByTs),
   };
 }

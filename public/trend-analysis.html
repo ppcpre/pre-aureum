@@ -19,6 +19,8 @@
   .trend-legend-swatch.resistance { background: oklch(0.65 0.18 25); }
   .trend-legend-swatch.support { background: oklch(0.72 0.15 150); }
   .trend-legend-swatch.dotted { background: repeating-linear-gradient(90deg, oklch(0.55 0.01 250) 0 4px, transparent 4px 7px); }
+  .trend-legend-swatch.ema50 { background: oklch(0.78 0.15 70); }
+  .trend-legend-swatch.ema200 { background: oklch(0.68 0.13 250); }
 
   .rsi-header { display: flex; align-items: center; gap: 10px; margin: 18px 0 4px; }
   .rsi-header .label { margin: 0; }
@@ -77,6 +79,8 @@
           <div class="trend-legend">
             <span class="trend-legend-item"><span class="trend-legend-swatch resistance"></span>แนวต้าน (เส้นเชื่อมจุดสูงล่าสุด)</span>
             <span class="trend-legend-item"><span class="trend-legend-swatch support"></span>แนวรับ (เส้นเชื่อมจุดต่ำล่าสุด)</span>
+            <span class="trend-legend-item"><span class="trend-legend-swatch ema50"></span>EMA 50</span>
+            <span class="trend-legend-item"><span class="trend-legend-swatch ema200"></span>EMA 200</span>
             <span class="trend-legend-item"><span class="trend-legend-swatch dotted"></span>RSI = 50</span>
           </div>
           <div id="trend-price-container">กำลังโหลด…</div>
@@ -88,7 +92,7 @@
         </section>
 
         <section class="card crossing-card">
-          <div class="label">จุดตัด RSI = 50 และสัญญาณ Divergence</div>
+          <div class="label">จุดตัด RSI=50 / EMA และสัญญาณ Divergence</div>
           <div id="divergence-list"></div>
           <div class="crossing-list" id="crossing-list">กำลังโหลด…</div>
         </section>
