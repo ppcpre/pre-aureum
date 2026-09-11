@@ -2,9 +2,19 @@ const messagesEl = document.getElementById("messages");
 const inputEl = document.getElementById("input-box");
 const sendBtn = document.getElementById("send-btn");
 const clearBtn = document.getElementById("clear-btn");
+const attachBtn = document.getElementById("attach-btn");
+const attachInputEl = document.getElementById("attach-input");
+const attachmentRowEl = document.getElementById("attachment-row");
 
 let history = []; // { role: "user"|"assistant", content: string }[] — mirrors server (chat_messages table)
 let sending = false;
+let pendingAttachments = []; // { type: "image"|"text", name, dataUrl?, content?, previewUrl? }[] — cleared after each send
+
+// Mirrors the server's own limits (routes/chat.ts) — checked client-side too
+// so a bad file is rejected instantly instead of round-tripping first.
+const MAX_ATTACHMENTS = 3;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const MAX_TEXT_CHARS = 50_000;
 
 const AI_ICON_SVG = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none">
   <rect x="4" y="7" width="16" height="13" rx="5" stroke="oklch(0.75 0.14 85)" stroke-width="1.8"/>
@@ -20,7 +30,9 @@ const GREETING = "สวัสดีครับ ถามเรื่องร�
 const SENTIMENT_LABEL = { bull: "โทนข่าว: ขาขึ้น", bear: "โทนข่าว: ขาลง", neutral: "โทนข่าว: เป็นกลาง" };
 const TAG_LABEL = { resistance: "ทะลุแนวต้าน", support: "ใกล้แนวรับ", gainer: "พุ่งแรง", loser: "ร่วงแรง" };
 
-function addMessage(role, text) {
+const FILE_ICON_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`;
+
+function addMessage(role, text, attachments) {
   const row = document.createElement("div");
   row.className = `msg-row ${role}`;
 
@@ -30,7 +42,23 @@ function addMessage(role, text) {
 
   const bubble = document.createElement("div");
   bubble.className = `msg ${role}`;
-  bubble.textContent = text;
+
+  if (attachments && attachments.length > 0) {
+    const attachEl = document.createElement("div");
+    attachEl.className = "msg-attachments";
+    attachEl.innerHTML = attachments
+      .map((a) =>
+        a.type === "image"
+          ? `<img src="${a.previewUrl || a.dataUrl}" alt="${a.name}">`
+          : `<span class="file-pill">${FILE_ICON_SVG}${a.name}</span>`
+      )
+      .join("");
+    bubble.appendChild(attachEl);
+  }
+
+  const textEl = document.createElement("div");
+  textEl.textContent = text;
+  bubble.appendChild(textEl);
   row.appendChild(bubble);
 
   messagesEl.appendChild(row);
@@ -192,14 +220,92 @@ async function loadHistory() {
   }
 }
 
+// --- Attachments ---
+
+function renderAttachmentRow() {
+  attachmentRowEl.innerHTML = pendingAttachments
+    .map(
+      (a, i) => `
+      <span class="attachment-chip">
+        ${a.type === "image" ? `<img src="${a.previewUrl}" alt="">` : `<span class="file-icon">${FILE_ICON_SVG}</span>`}
+        <span class="name">${a.name}</span>
+        <button class="remove" type="button" data-i="${i}" aria-label="เอาออก">×</button>
+      </span>`
+    )
+    .join("");
+  attachmentRowEl.querySelectorAll(".remove").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      pendingAttachments.splice(Number(btn.dataset.i), 1);
+      renderAttachmentRow();
+    });
+  });
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+async function handleFilesSelected(fileList) {
+  for (const file of Array.from(fileList)) {
+    if (pendingAttachments.length >= MAX_ATTACHMENTS) {
+      alert(`แนบไฟล์ได้สูงสุด ${MAX_ATTACHMENTS} ไฟล์ต่อข้อความ`);
+      break;
+    }
+    const isImage = file.type.startsWith("image/");
+    const isText = /\.(txt|md)$/i.test(file.name);
+
+    if (isImage) {
+      if (file.size > MAX_IMAGE_BYTES) {
+        alert(`รูป "${file.name}" ใหญ่เกินไป (จำกัดไม่เกิน 4MB/รูป)`);
+        continue;
+      }
+      const dataUrl = await readFileAsDataUrl(file);
+      pendingAttachments.push({ type: "image", name: file.name, dataUrl, previewUrl: dataUrl });
+    } else if (isText) {
+      const content = await readFileAsText(file);
+      if (content.length > MAX_TEXT_CHARS) {
+        alert(`ไฟล์ "${file.name}" ยาวเกินไป (จำกัดไม่เกิน ${MAX_TEXT_CHARS.toLocaleString()} ตัวอักษร)`);
+        continue;
+      }
+      pendingAttachments.push({ type: "text", name: file.name, content });
+    } else {
+      alert(`ไม่รองรับไฟล์ "${file.name}" — แนบได้แค่รูปภาพ หรือไฟล์ข้อความ (.txt/.md)`);
+    }
+  }
+  renderAttachmentRow();
+}
+
+attachBtn.addEventListener("click", () => attachInputEl.click());
+attachInputEl.addEventListener("change", () => {
+  if (attachInputEl.files.length > 0) handleFilesSelected(attachInputEl.files);
+  attachInputEl.value = ""; // allow re-selecting the same file later
+});
+
 async function send() {
   const text = inputEl.value.trim();
-  if (!text || sending) return;
+  if ((!text && pendingAttachments.length === 0) || sending) return;
 
   sending = true;
   sendBtn.disabled = true;
   inputEl.value = "";
-  addMessage("user", text);
+  const attachmentsForThisMessage = pendingAttachments;
+  pendingAttachments = [];
+  renderAttachmentRow();
+  addMessage("user", text, attachmentsForThisMessage);
 
   const thinking = createThinkingCard();
   let assistantText = "";
@@ -209,7 +315,13 @@ async function send() {
     const res = await fetch("/api/admin/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text, history }),
+      body: JSON.stringify({
+        message: text,
+        history,
+        attachments: attachmentsForThisMessage.map((a) =>
+          a.type === "image" ? { type: "image", name: a.name, dataUrl: a.dataUrl } : { type: "text", name: a.name, content: a.content }
+        ),
+      }),
     });
 
     if (res.status === 401) {
@@ -250,7 +362,9 @@ async function send() {
           addMessage("assistant", `⚠️ ${friendly}`);
         } else if (event.type === "done") {
           if (assistantText) {
-            history.push({ role: "user", content: text }, { role: "assistant", content: assistantText });
+            const attachmentNote =
+              attachmentsForThisMessage.length > 0 ? "\n\n" + attachmentsForThisMessage.map((a) => `📎 ${a.name}`).join("\n") : "";
+            history.push({ role: "user", content: text + attachmentNote }, { role: "assistant", content: assistantText });
           }
         }
       }

@@ -74,16 +74,49 @@
   }
   .digest-chip:hover { background: oklch(0.75 0.14 85 / 0.18); }
 
-  #input-bar { flex-shrink: 0; display: flex; gap: 10px; padding: 16px 20px; border-top: 1px solid oklch(0.29 0.008 250); }
+  #input-area { flex-shrink: 0; border-top: 1px solid oklch(0.29 0.008 250); padding: 12px 20px 16px; }
+  #attachment-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  #attachment-row:empty { display: none; }
+  .attachment-chip {
+    display: flex; align-items: center; gap: 7px; background: oklch(0.22 0.007 250); border: 1px solid oklch(0.29 0.008 250);
+    border-radius: 8px; padding: 5px 8px 5px 5px; font-size: 12px; max-width: 200px;
+  }
+  .attachment-chip img { width: 28px; height: 28px; object-fit: cover; border-radius: 5px; flex-shrink: 0; }
+  .attachment-chip .file-icon {
+    width: 28px; height: 28px; border-radius: 5px; background: oklch(0.29 0.008 250); flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; color: oklch(0.60 0.01 250);
+  }
+  .attachment-chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: oklch(0.86 0.005 250); }
+  .attachment-chip .remove {
+    background: none; border: none; color: oklch(0.55 0.01 250); cursor: pointer; font-size: 15px; line-height: 1;
+    padding: 2px; flex-shrink: 0;
+  }
+  .attachment-chip .remove:hover { color: oklch(0.65 0.18 25); }
+
+  #input-bar { display: flex; gap: 10px; align-items: flex-end; }
+  #attach-btn {
+    background: none; border: 1px solid oklch(0.29 0.008 250); color: oklch(0.60 0.01 250);
+    border-radius: 8px; width: 42px; height: 42px; flex-shrink: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #attach-btn:hover { border-color: oklch(0.75 0.14 85 / 0.4); color: oklch(0.75 0.14 85); }
   #input-box {
     flex: 1; background: oklch(0.14 0.006 250); border: 1px solid oklch(0.29 0.008 250);
     border-radius: 8px; padding: 11px 14px; color: inherit; font-family: inherit; font-size: 13.5px; resize: none;
   }
   #send-btn {
     background: oklch(0.75 0.14 85); color: oklch(0.16 0.02 85); border: none;
-    border-radius: 8px; padding: 0 20px; font-weight: 700; font-size: 13px; cursor: pointer;
+    border-radius: 8px; padding: 0 20px; font-weight: 700; font-size: 13px; cursor: pointer; height: 42px;
   }
   #send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Attachments shown inside a sent message bubble */
+  .msg-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .msg-attachments img { width: 64px; height: 64px; object-fit: cover; border-radius: 7px; border: 1px solid oklch(0.75 0.14 85 / 0.3); }
+  .msg-attachments .file-pill {
+    display: flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 5px 9px; border-radius: 20px;
+    background: oklch(0.75 0.14 85 / 0.14); color: oklch(0.75 0.14 85);
+  }
 </style>
 </head>
 <body data-active="admin-chat">
@@ -128,9 +161,16 @@
 
       <main class="chat-main">
         <div id="messages"></div>
-        <div id="input-bar">
-          <textarea id="input-box" rows="1" placeholder="พิมพ์คำถาม..."></textarea>
-          <button id="send-btn">ส่ง</button>
+        <div id="input-area">
+          <div id="attachment-row"></div>
+          <div id="input-bar">
+            <button id="attach-btn" type="button" aria-label="แนบไฟล์" title="แนบรูปภาพหรือไฟล์ข้อความ (.txt/.md)">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17.5 6.5 L9 15a3 3 0 1 0 4.24 4.24L20.5 12a5 5 0 1 0-7.07-7.07L6 12.36" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <input type="file" id="attach-input" accept="image/png,image/jpeg,image/webp,image/gif,.txt,.md" multiple hidden>
+            <textarea id="input-box" rows="1" placeholder="พิมพ์คำถาม... (แนบรูปภาพหรือไฟล์ข้อความได้)"></textarea>
+            <button id="send-btn">ส่ง</button>
+          </div>
         </div>
       </main>
     </div>

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Env } from "../types";
 import { requireAdmin } from "../lib/auth";
-import { runChat, type ChatMessage } from "../lib/chat";
+import { runChat, type ChatAttachment, type ChatMessage } from "../lib/chat";
 import { getUsageSummary } from "../lib/chat-usage";
 import { clearChatHistory, getChatHistory } from "../lib/chat-history";
 
@@ -22,32 +22,59 @@ async function checkAndIncrementDailyQuota(env: Env): Promise<boolean> {
   return true;
 }
 
+// Attachments never touch Twelve Data/Yahoo quotas, but they DO cost real
+// Neurons per request (an image adds real prompt tokens — see the vision
+// test: a single 1x1 pixel already cost ~37 Neurons) — kept small and
+// capped so one message can't balloon the daily Neuron budget shared with
+// news-sentiment analysis.
+const MAX_ATTACHMENTS = 3;
+const MAX_IMAGE_DATA_URL_LENGTH = 6_000_000; // ~4.3MB of actual image bytes after base64's ~33% overhead
+const MAX_TEXT_FILE_LENGTH = 50_000; // characters
+
+function validateAttachments(attachments: ChatAttachment[]): string | null {
+  if (attachments.length > MAX_ATTACHMENTS) return `แนบไฟล์ได้สูงสุด ${MAX_ATTACHMENTS} ไฟล์ต่อข้อความ`;
+  for (const a of attachments) {
+    if (a.type === "image") {
+      if (!a.dataUrl || !a.dataUrl.startsWith("data:image/")) return `ไฟล์ "${a.name}" ไม่ใช่รูปภาพที่รองรับ`;
+      if (a.dataUrl.length > MAX_IMAGE_DATA_URL_LENGTH) return `รูป "${a.name}" ใหญ่เกินไป (จำกัดไม่เกิน ~4MB/รูป)`;
+    } else if (a.type === "text") {
+      if (a.content === undefined) return `ไฟล์ "${a.name}" อ่านเนื้อหาไม่ได้`;
+      if (a.content.length > MAX_TEXT_FILE_LENGTH) return `ไฟล์ "${a.name}" ยาวเกินไป (จำกัดไม่เกิน ${MAX_TEXT_FILE_LENGTH.toLocaleString()} ตัวอักษร)`;
+    } else {
+      return "ไม่รองรับไฟล์ประเภทนี้ — แนบได้แค่รูปภาพหรือไฟล์ข้อความ (.txt/.md)";
+    }
+  }
+  return null;
+}
+
 // POST /api/admin/chat — streams an SSE response (text deltas + tool-call events).
 chatRoute.post("/", requireAdmin, async (c) => {
   const body = await c.req
-    .json<{ message?: string; history?: ChatMessage[] }>()
-    .catch(() => ({ message: undefined, history: undefined }));
-  const message = body.message?.trim();
+    .json<{ message?: string; history?: ChatMessage[]; attachments?: ChatAttachment[] }>()
+    .catch(() => ({ message: undefined, history: undefined, attachments: undefined }));
+  const attachments = body.attachments ?? [];
+  // Text is optional when an attachment carries the actual question (e.g. "look at this chart") —
+  // only reject when there's truly nothing to go on.
+  const message = body.message?.trim() || (attachments.length > 0 ? "ดูไฟล์แนบนี้ให้หน่อย" : "");
   if (!message) return c.json({ error: "message required" }, 400);
 
   const { readable, writable } = new TransformStream<Uint8Array>();
   const writer = writable.getWriter();
+  const encoder = new TextEncoder();
+  const sendError = (text: string) => writer.write(encoder.encode(`data: ${JSON.stringify({ type: "error", message: text })}\n\n`));
 
-  const allowed = await checkAndIncrementDailyQuota(c.env);
-  if (!allowed) {
-    const encoder = new TextEncoder();
-    await writer.write(
-      encoder.encode(
-        `data: ${JSON.stringify({
-          type: "error",
-          message: "ถึงขีดจำกัดข้อความต่อวันแล้ว (กันโควตา Neurons ฟรีของ Cloudflare หมดจากบั๊ก) ลองใหม่พรุ่งนี้",
-        })}\n\n`
-      )
-    );
+  const attachmentError = validateAttachments(attachments);
+  const allowed = attachmentError ? true : await checkAndIncrementDailyQuota(c.env);
+
+  if (attachmentError) {
+    await sendError(attachmentError);
+    await writer.close();
+  } else if (!allowed) {
+    await sendError("ถึงขีดจำกัดข้อความต่อวันแล้ว (กันโควตา Neurons ฟรีของ Cloudflare หมดจากบั๊ก) ลองใหม่พรุ่งนี้");
     await writer.close();
   } else {
     // Runs after this handler returns the streaming Response below.
-    c.executionCtx.waitUntil(runChat(c.env, body.history ?? [], message, writer));
+    c.executionCtx.waitUntil(runChat(c.env, body.history ?? [], message, writer, attachments));
   }
 
   return new Response(readable, {

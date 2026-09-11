@@ -22,6 +22,7 @@ Rules:
 - This is an analysis tool, not investment advice. If asked "should I buy/sell", walk through what the data shows (support held, trend, news) and explicitly say you can't tell them what to do.
 - Answer in the language the user writes in (Thai or English) — respond fluently and naturally in Thai when the user writes Thai. Keep answers concise — this is a chat, not a report.
 - Thai stock data is currently sourced from an unofficial feed with known accuracy caveats (see the app's own disclaimers) — mention this if the user seems to be relying heavily on a Thai stock price/level for a decision.
+- The user can attach images (e.g. a chart screenshot) or plain-text files to a message. When an image is attached, actually look at it and describe/analyze what's relevant to the question — don't ignore it. A price or level you merely SEE in an attached chart is not live data — if the question needs the current real price/level, still call the matching tool rather than reading it off the image.
 - Only ever answer with your final response text. Do not narrate your reasoning.`;
 
 export interface ChatMessage {
@@ -29,12 +30,48 @@ export interface ChatMessage {
   content: string;
 }
 
+/**
+ * One attachment on the CURRENT outgoing message only — never persisted or
+ * resent on later turns (see saveChatMessage below, which stores just a
+ * "📎 filename" note). Keeps image tokens/Neurons paid once per attachment,
+ * not repeated on every subsequent turn the way full history replay would.
+ */
+export interface ChatAttachment {
+  type: "image" | "text";
+  name: string;
+  dataUrl?: string; // images only — "data:image/png;base64,..."
+  content?: string; // text files only — raw text
+}
+
+type WorkersAiContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+
 interface WorkersAiMessage {
   role: string;
-  content: string | null;
+  content: string | WorkersAiContentPart[] | null;
   tool_calls?: { id: string; type: "function"; function: { name: string; arguments: string } }[];
   tool_call_id?: string;
   name?: string;
+}
+
+/**
+ * Plain text files get inlined straight into the text block (a text file is
+ * just more text to read — no special API needed). Images become separate
+ * `image_url` parts in an OpenAI-style content array — verified directly
+ * against this exact model (@cf/qwen/qwen3.8-27b correctly read a test
+ * image's color back), since Cloudflare's own published examples for this
+ * shape have been reported inaccurate elsewhere.
+ */
+function buildUserContent(userMessage: string, attachments: ChatAttachment[]): string | WorkersAiContentPart[] {
+  const images = attachments.filter((a) => a.type === "image" && a.dataUrl);
+  const textFiles = attachments.filter((a) => a.type === "text" && a.content !== undefined);
+
+  let text = userMessage;
+  for (const f of textFiles) {
+    text += `\n\n[ไฟล์แนบ: ${f.name}]\n${f.content}`;
+  }
+
+  if (images.length === 0) return text;
+  return [{ type: "text", text }, ...images.map((img) => ({ type: "image_url" as const, image_url: { url: img.dataUrl! } }))];
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -72,16 +109,22 @@ export async function runChat(
   env: Env,
   history: ChatMessage[],
   userMessage: string,
-  writer: SSEWriter
+  writer: SSEWriter,
+  attachments: ChatAttachment[] = []
 ): Promise<void> {
   const messages: WorkersAiMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     ...history.map((m): WorkersAiMessage => ({ role: m.role, content: m.content })),
-    { role: "user", content: userMessage },
+    { role: "user", content: buildUserContent(userMessage, attachments) },
   ];
 
   try {
-    await saveChatMessage(env.DB, "user", userMessage);
+    // Persist a readable note, never the actual image/file bytes — D1 isn't
+    // for storing attachments, and re-showing "📎 filename" on reload is
+    // enough context for a human; the model itself never sees the
+    // attachment again on later turns either (see buildUserContent above).
+    const attachmentNote = attachments.length > 0 ? "\n\n" + attachments.map((a) => `📎 ${a.name}`).join("\n") : "";
+    await saveChatMessage(env.DB, "user", userMessage + attachmentNote);
 
     for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
       const result = (await env.AI.run(MODEL, {
