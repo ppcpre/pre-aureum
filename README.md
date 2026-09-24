@@ -138,6 +138,14 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
     - **เจอเพิ่มระหว่างแก้ (คนละจุดแต่เกี่ยวข้องกัน)**: `chat-tools.ts`'s `get_gold_price`/`get_gold_support_resistance` (tool ของ AI Chat) เรียก `twelvedata.fetchLatestPrice`/`fetchTimeSeries` **ตรงๆ** มาตลอด ข้าม `gold-refresh.ts` ทั้งหมด — ไม่มี cache, ไม่มี cooldown, ไม่มี failure backoff เลย ทั้งที่เป็นบั๊กคลาสเดียวกับที่ทำโควตาพังไปก่อนหน้านี้ในวันเดียวกัน (ดู M1 ด้านบน) แก้แล้วให้เรียก `getCachedGoldPrice()`/`getGoldCandles()` เหมือน route อื่นทุกจุด — ยังไม่ได้ click-test จริงเพราะหน้า AI Chat ล็อกอินด้วยรหัสผ่าน admin (ไม่ควรให้ AI เป็นคนกรอกรหัสผ่านแทนเจ้าของ) แต่โค้ดเรียกฟังก์ชันชุดเดียวกับที่ทดสอบผ่าน route อื่นแล้วเป๊ะ — `get_stock_support_resistance` (หุ้นไทย ผ่าน Yahoo Finance) ไม่ได้แตะ เพราะหุ้นไม่มี quota รายวันจำกัดแบบทอง
   - ทดสอบยืนยันแล้วบน production ทุก timeframe + mobile: เส้นแนวโน้มขึ้นสมเหตุสมผลเทียบราคาจริง, จุดตัด RSI=50 ตรงกับกราฟ, ไม่มี console error
 - ⬜ ยืนยัน Volume Profile กับข้อมูลจริง — Twelve Data มักไม่รายงาน volume จริงสำหรับทอง/CFD (เป็น OTC) ฟังก์ชัน `buildVolumeProfile` คืนค่า `undefined` ถ้าไม่มี volume ในแท่งเทียนเลย ต้องเช็คตอนมี API key แล้วว่า field `volume` มาจริงไหม
+- ✅ **Progressive Web App (2026-09-24)**: ตามที่ขอ ("ทำเว็บนี้เป็น Progressive Web App ใช้ icon ที่ design ไว้แล้ว") — ติดตั้งลงหน้าจอโฮมได้ทั้งมือถือ/desktop
+  - **Icon**: ใช้มาร์คภูเขา/กราฟขาขึ้นที่ออกแบบไว้แล้วจริง (ตัวเดียวกับใน sidebar) — เอาเวอร์ชัน "ทางเลือกที่ 3" จาก mockup [Mountain Mark Fix](https://claude.ai/artifact/CKGh2yzRNfAMUtUhotcaDQ) (fill เข้ม 0.7 + สันเขาสีอ่อน) เพราะ mockup เขียนไว้เองว่าเป็นเวอร์ชัน "อ่านง่ายสุดตอนเล็ก" ตรงกับโจทย์ icon แอปที่มักโชว์เล็กบนหน้าจอโฮม ไม่ได้ออกแบบใหม่
+    - สี oklch() ที่ใช้ในแอปทั้งระบบ resolve เป็น hex ก่อนฝังใน SVG icon เพราะ librsvg (ตัวแปลง SVG→PNG ที่ใช้) ไม่รู้จัก oklch() — บั๊กคลาสเดียวกับที่เจอกับ Lightweight Charts ตอนทำกราฟแท่งเทียนก่อนหน้านี้ (resolve ผ่าน canvas readback จริงในเบราว์เซอร์ ไม่ได้เดาค่า)
+    - Source ที่แก้ไขได้อยู่ที่ `public/icon-source.svg` — รัน `sharp` (มีอยู่แล้วใน `node_modules`) ผ่าน PNG 4 ขนาด: `icons/icon-192.png`, `icons/icon-512.png` (ทั้งแบบ `any` และ `maskable` ใน manifest เพราะมาร์คมีระยะขอบพอสำหรับ safe zone ของ maskable icon), `icons/apple-touch-icon.png` (180×180, iOS), `favicon-32.png`/`favicon-16.png`
+  - `public/manifest.json` — name/short_name "Pre-AUREUM", `display: "standalone"`, `theme_color`/`background_color` #060709 (สีพื้นหลังจริงของแอป)
+  - `public/sw.js` (Service Worker) — **cache เฉพาะ static shell เท่านั้น (HTML/CSS/JS/icons) ไม่แตะ `/api/*` เด็ดขาด** เพราะทั้ง session นี้เน้นเรื่องข้อมูลตลาดต้องสดจริงมาตลอด (gold-refresh.ts, RSI/EMA, ฯลฯ) — SW ที่ cache ราคาทองเมื่อวานไว้จะทำลายหลักการนั้นทันที ใช้ network-first สำหรับ shell (deploy ใหม่เห็นผลทันทีตอนออนไลน์ cache เป็นแค่ fallback ตอนออฟไลน์) versioned ด้วย `CACHE_VERSION` ต้องเพิ่มเลขทุกครั้งที่แก้ shell asset สำคัญ
+  - `public/pwa.js` — ลงทะเบียน service worker, โหลดทุกหน้า (11 หน้า HTML รวม `/admin/login`) ผ่าน `<script src="/pwa.js">`
+  - ทดสอบยืนยันบน production แล้ว: manifest/icons/sw.js โหลดสำเร็จ (200) ทั้งหมด, service worker ลงทะเบียนและ activate จริง (เช็คผ่าน `navigator.serviceWorker.getRegistrations()`), เรียก `/api/price/gold` ยังได้ราคาสดจริงไม่ถูก cache, ไม่มี console error
 - ⬜ ~~Scalp Mode (poll ทุก 10-15 วิ)~~ — เลิกทำแนวคิดนี้แล้ว (2026-09-08) หลังเปลี่ยนราคาทองเป็น on-demand: ไม่มี "โหมด poll แบบ fixed interval" อีกต่อไป (ดูหัวข้อ M1 ด้านบน) ถ้าอยากได้ความถี่สูงขึ้นตอนมีคนเปิดแอปอยู่ ให้ลด `REFRESH_COOLDOWN_SECONDS` ใน `lib/gold-refresh.ts` แทน (ตอนนี้ 1800 วิ — ปรับขึ้นจาก 240 วิเดิมหลังชนโควตา ดูหัวข้อ M1 ด้านบน)
 
 ## Admin auth (ใหม่)
@@ -231,8 +239,13 @@ src/
 public/
   sidebar.js         Sidebar เมนู (mount ทุกหน้าผ่าน #sidebar-mount)
   chat-fab.js        Floating chat icon ลิงก์ไป /admin/chat (ทุกหน้า ยกเว้น chat เองกับ login)
-  market-hours.js    คำนวณสถานะเปิด/ปิดตลาดทอง+SET จากเวลาจริง (client-side, timezone Asia/Bangkok เสมอ) — ไม่รู้จักวันหยุดนักขัตฤกษ์
+  market-hours.js    คำนวณสถานะเปิด/ปิดตลาดทอง+SET จากเวลาจริง (client-side, timezone Asia/Bangkok เสมอ) + รายการวันหยุด SET/ทอง ปี 2026 hardcoded + badge แจ้งล่วงหน้า 7 วัน
   set-links.js       ปุ่ม/ลิงก์ icon ไปหน้าปันผล+ราคาย้อนหลังบน set.or.th ต่อ symbol — ใช้ร่วมกันทั้ง Screener และ Dashboard หุ้นไทย
+  pwa.js             ลงทะเบียน Service Worker (sw.js) — โหลดทุกหน้า (11 หน้า HTML)
+  sw.js              Service Worker — cache แค่ static shell, ไม่แตะ /api/* เด็ดขาด (กันโชว์ข้อมูลตลาดเก่าค้าง) — ดูหมายเหตุ PWA ด้านบน
+  manifest.json      Web App Manifest — name/icons/theme_color สำหรับ "เพิ่มลงหน้าจอโฮม"
+  icon-source.svg    Source ของ app icon (มาร์คภูเขาเดิมจาก sidebar, สี resolve เป็น hex แล้ว) — แก้ตรงนี้แล้วรัน sharp ใหม่ถ้าต้องเปลี่ยน icon
+  icons/             icon-192.png, icon-512.png, apple-touch-icon.png — generate จาก icon-source.svg ด้วย sharp
   index.html/js      ทอง Dashboard — 3 แถว: สรุปทอง+สัญญาณซื้อ-ขาย (คู่กัน) / กราฟ (เต็มความกว้าง) / แนวสำคัญ tile grid (เต็มความกว้าง)
   trend-analysis.html/js  "RSI & แนวรับแนวต้าน" — กราฟราคา+เส้นแนวโน้มทแยง คู่กับกราฟ RSI(14)+เส้นแนวโน้มของมันเอง (2 chart ซิงค์ zoom/pan กัน) + จุดตัด RSI=50 + divergence, เลือก timeframe ได้
   news.html/js       ทอง ข่าว

@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- App icon built from the approved Pre-AUREUM mountain/uptrend mark
+       (see the "Mountain Mark Fix" design — sidebar.js ships the same mark
+       at fill-opacity 0.45; this uses the mockup's "ทางเลือกที่ 3" variant —
+       bolder fill (0.7) + lighter ridge line — explicitly the one labelled
+       "อ่านง่ายสุดตอนเล็ก" (most legible at small size), which is exactly
+       what an app/home-screen icon needs. Not a new design. -->
+  <!-- Colors resolved from the app's oklch tokens to plain hex — librsvg (used to
+       rasterize this for PWA icon PNGs) doesn't understand oklch(), the same
+       issue hit earlier with the candlestick chart library; resolved via a
+       real browser canvas readback, not guessed. bg=oklch(0.13 .006 250),
+       green=oklch(0.72 .15 150), lightGreen=oklch(0.90 .10 150). -->
+  <rect width="512" height="512" fill="#060709"/>
+  <g transform="translate(256 256) scale(11.5) translate(-12 -12)">
+    <path d="M3 19 L8 11 L11 14 L15 6 L21 19 Z" fill="#53be70" fill-opacity="0.7" stroke="none"/>
+    <path d="M3 19 L8 11 L11 14 L15 6" stroke="#aef1bb" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <circle cx="15" cy="6" r="1.6" fill="#aef1bb"/>
+  </g>
+</svg>
