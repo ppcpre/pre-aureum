@@ -322,4 +322,9 @@ trendRefreshEl.addEventListener("click", () => {
   });
 });
 
+// Pull-to-refresh (see pull-to-refresh.js) — same as the refresh button above.
+if (window.setPullToRefreshHandler) {
+  window.setPullToRefreshHandler(() => loadTrendAnalysis(currentTf));
+}
+
 loadTrendAnalysis(currentTf);

@@ -5,6 +5,9 @@ body {
   background: oklch(0.16 0.006 250);
   color: oklch(0.92 0.004 250);
   font-family: 'Manrope', system-ui, sans-serif;
+  /* Suppresses the browser's own overscroll bounce/pull-to-reload at the
+     page top so it doesn't fight the custom gesture in pull-to-refresh.js. */
+  overscroll-behavior-y: contain;
 }
 
 .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }

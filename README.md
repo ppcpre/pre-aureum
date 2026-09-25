@@ -151,6 +151,12 @@ Cloudflare Workers app (Hono + D1 + KV + Cron) ที่ดึงราคาท
   - `public/sw.js` (Service Worker) — **cache เฉพาะ static shell เท่านั้น (HTML/CSS/JS/icons) ไม่แตะ `/api/*` เด็ดขาด** เพราะทั้ง session นี้เน้นเรื่องข้อมูลตลาดต้องสดจริงมาตลอด (gold-refresh.ts, RSI/EMA, ฯลฯ) — SW ที่ cache ราคาทองเมื่อวานไว้จะทำลายหลักการนั้นทันที ใช้ network-first สำหรับ shell (deploy ใหม่เห็นผลทันทีตอนออนไลน์ cache เป็นแค่ fallback ตอนออฟไลน์) versioned ด้วย `CACHE_VERSION` ต้องเพิ่มเลขทุกครั้งที่แก้ shell asset สำคัญ
   - `public/pwa.js` — ลงทะเบียน service worker, โหลดทุกหน้า (11 หน้า HTML รวม `/admin/login`) ผ่าน `<script src="/pwa.js">`
   - ทดสอบยืนยันบน production แล้ว: manifest/icons/sw.js โหลดสำเร็จ (200) ทั้งหมด, service worker ลงทะเบียนและ activate จริง (เช็คผ่าน `navigator.serviceWorker.getRegistrations()`), เรียก `/api/price/gold` ยังได้ราคาสดจริงไม่ถูก cache, ไม่มี console error
+  - **✅ Pull-to-refresh (2026-09-25)**: ตามที่ขอ ("ทำ pull to refresh ในหน้าจอหน่อย") — โหมด `standalone` ของ PWA ทำให้เบราว์เซอร์ตัด native pull-to-refresh (full reload) ออกไปด้วย (ไม่มี browser chrome เหลือให้สั่งงานแล้ว) จำเป็นต้องทำเองแทน
+    - `public/pull-to-refresh.js` — gesture handler แบบ touch ล้วน โหลดทุกหน้าเหมือน pwa.js ค่าเริ่มต้นคือ `location.reload()` แต่หน้าที่มี AJAX refresh ของตัวเองอยู่แล้ว (ทอง Dashboard, หุ้นไทย Dashboard, RSI & แนวรับแนวต้าน, Screener, ข่าว) เรียก `setPullToRefreshHandler(fn)` สลับเป็นรีเฟรชแบบนุ่มนวลในหน้าแทนโหลดใหม่ทั้งหน้า
+    - **กันชนกับ interaction ที่มีอยู่แล้ว 2 จุด**: (1) ทัชที่เริ่มบนกราฟแท่งเทียน (Lightweight Charts) ปล่อยให้กราฟจัดการ pan/pinch-zoom ของมันเองเสมอ ไม่แย่ง gesture (2) หน้า AI Chat (`admin/chat.html`) ตรึง body/html ไว้ที่ 100vh แล้วสกอลล์แค่ใน `#messages` เอง — เช็คแค่ `window.scrollY` อย่างเดียวจะทำให้ gesture ทำงานได้ตลอดแม้กำลังเลื่อนดูประวัติแชทขึ้นบน แก้โดยไล่หา scrollable ancestor จริงของจุดที่แตะแล้วเช็ค `scrollTop` ของ element นั้นแทน
+    - เพิ่ม `overscroll-behavior-y: contain` ใน `styles.css` กัน native bounce ของเบราว์เซอร์ชนกับ gesture ที่เขียนเอง (สำคัญตอนเปิดผ่านแท็บเบราว์เซอร์ปกติ ไม่ใช่แค่ตอนติดตั้งเป็นแอป)
+    - เจอบั๊กจริงระหว่างทดสอบ: `getComputedStyle()` พังถ้า touch target ไม่ใช่ Element จริง — แก้ด้วยการเช็ค `nodeType === 1` ก่อนเดินขึ้นไล่ ancestor
+    - ทดสอบยืนยันบน production แล้วด้วยการจำลอง touch event จริง (ไม่ใช่แค่เดา): ลากลงเกิน threshold (70px) → ตัว indicator หมุนแล้วยิง fetch จริงครบ (ราคา, กราฟ, S/R, สัญญาณ, สรุป AI แบบบังคับรีเฟรช) → indicator เก็บกลับเมื่อเสร็จ, ลากสั้นกว่า threshold → indicator เด้งกลับเฉยๆ ไม่ยิง fetch, ลากซ้ำระหว่างที่กำลังรีเฟรชอยู่ → ถูกเพิกเฉยถูกต้อง (กัน fetch ซ้อน)
 - ⬜ ~~Scalp Mode (poll ทุก 10-15 วิ)~~ — เลิกทำแนวคิดนี้แล้ว (2026-09-08) หลังเปลี่ยนราคาทองเป็น on-demand: ไม่มี "โหมด poll แบบ fixed interval" อีกต่อไป (ดูหัวข้อ M1 ด้านบน) ถ้าอยากได้ความถี่สูงขึ้นตอนมีคนเปิดแอปอยู่ ให้ลด `REFRESH_COOLDOWN_SECONDS` ใน `lib/gold-refresh.ts` แทน (ตอนนี้ 1800 วิ — ปรับขึ้นจาก 240 วิเดิมหลังชนโควตา ดูหัวข้อ M1 ด้านบน)
 
 ## Admin auth (ใหม่)
@@ -248,6 +254,7 @@ public/
   set-links.js       ปุ่ม/ลิงก์ icon ไปหน้าปันผล+ราคาย้อนหลังบน set.or.th ต่อ symbol — ใช้ร่วมกันทั้ง Screener และ Dashboard หุ้นไทย
   pwa.js             ลงทะเบียน Service Worker (sw.js) — โหลดทุกหน้า (11 หน้า HTML)
   sw.js              Service Worker — cache แค่ static shell, ไม่แตะ /api/* เด็ดขาด (กันโชว์ข้อมูลตลาดเก่าค้าง) — ดูหมายเหตุ PWA ด้านบน
+  pull-to-refresh.js Pull-to-refresh gesture (touch) — โหลดทุกหน้า, `window.setPullToRefreshHandler(fn)` ให้หน้าที่มี AJAX refresh เองสลับ default (location.reload) เป็นรีเฟรชแบบนุ่มนวล
   manifest.json      Web App Manifest — name/icons/theme_color สำหรับ "เพิ่มลงหน้าจอโฮม"
   icon-source.svg    Source ของ app icon (มาร์คภูเขาเดิมจาก sidebar, สี resolve เป็น hex แล้ว) — แก้ตรงนี้แล้วรัน sharp ใหม่ถ้าต้องเปลี่ยน icon
   icons/             icon-192.png, icon-512.png, apple-touch-icon.png — generate จาก icon-source.svg ด้วย sharp

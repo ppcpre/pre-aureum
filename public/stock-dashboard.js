@@ -258,4 +258,13 @@ async function init() {
   }
 }
 
+// Pull-to-refresh (see pull-to-refresh.js) — refreshes the AI summary card
+// and the currently-viewed symbol's chart/S-R, same as their own individual
+// refresh buttons above.
+if (window.setPullToRefreshHandler) {
+  window.setPullToRefreshHandler(async () => {
+    await Promise.all([loadStockSummary(true), currentSymbol ? loadSymbol(currentSymbol) : Promise.resolve()]);
+  });
+}
+
 init();

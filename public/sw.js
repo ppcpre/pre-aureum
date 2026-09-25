@@ -8,7 +8,7 @@
 //
 // Bump this on every deploy that changes cached files so old clients pick up
 // the new shell instead of getting stuck on stale JS/CSS after a deploy.
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2"; // v2: added pull-to-refresh.js + pwa.js to the shell
 const CACHE_NAME = `aureum-shell-${CACHE_VERSION}`;
 
 const SHELL_ASSETS = [
@@ -18,6 +18,8 @@ const SHELL_ASSETS = [
   "/sidebar.js",
   "/chat-fab.js",
   "/market-hours.js",
+  "/pwa.js",
+  "/pull-to-refresh.js",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];

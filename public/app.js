@@ -292,4 +292,14 @@ staleRefreshBtnEl.addEventListener("click", async () => {
   startAutoRefresh(); // manual refresh resets the 5-minute window
 });
 
+// Pull-to-refresh (see pull-to-refresh.js) — refreshes everything visible on
+// this page, same as the stale-banner's manual refresh button above, and
+// resets the 5-minute auto-refresh window the same way a manual refresh does.
+if (window.setPullToRefreshHandler) {
+  window.setPullToRefreshHandler(async () => {
+    await Promise.all([loadAiSummary(true), loadPrice(), loadChartAndSR(currentTf), loadGoldSignal()]);
+    startAutoRefresh();
+  });
+}
+
 init().then(startAutoRefresh);

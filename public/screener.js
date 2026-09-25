@@ -57,4 +57,9 @@ async function init() {
   }
 }
 
+// Pull-to-refresh (see pull-to-refresh.js).
+if (window.setPullToRefreshHandler) {
+  window.setPullToRefreshHandler(init);
+}
+
 init();
