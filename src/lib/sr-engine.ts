@@ -64,18 +64,74 @@ export function calculateEMA(candles: Candle[], period: number): number | undefi
  * convention as calculateRSISeries() below.
  */
 export function calculateEMASeries(candles: Candle[], period: number): (number | undefined)[] {
-  const result = new Array<number | undefined>(candles.length).fill(undefined);
-  if (candles.length < period) return result;
+  return emaOfValues(candles.map((c) => c.close), period);
+}
+
+/**
+ * The actual EMA math, generalized to any value series (not just candle
+ * closes) — calculateEMASeries() above is just this applied to closes.
+ * MACD needs the same smoothing applied to its OWN line (not price) for the
+ * signal line, hence pulling this out as its own function.
+ */
+function emaOfValues(values: number[], period: number): (number | undefined)[] {
+  const result = new Array<number | undefined>(values.length).fill(undefined);
+  if (values.length < period) return result;
 
   const k = 2 / (period + 1);
-  let ema = avg(candles.slice(0, period).map((c) => c.close)); // seed with SMA
+  let ema = avg(values.slice(0, period)); // seed with SMA
   result[period - 1] = ema;
 
-  for (let i = period; i < candles.length; i++) {
-    ema = candles[i].close * k + ema * (1 - k);
+  for (let i = period; i < values.length; i++) {
+    ema = values[i] * k + ema * (1 - k);
     result[i] = ema;
   }
   return result;
+}
+
+export interface MACDPoint {
+  ts: number;
+  macd: number; // EMA(fast) - EMA(slow), computed on closes
+  signal: number; // EMA(signalPeriod) of the macd line itself
+  histogram: number; // macd - signal
+}
+
+/**
+ * MACD (Moving Average Convergence Divergence) — standard 12/26/9. Built
+ * entirely from the EMA primitives above: the MACD line is the difference
+ * of two close-price EMAs, and the signal line is a THIRD EMA applied to
+ * the MACD line's own values (not price) — that's why emaOfValues() had to
+ * be generalized beyond just candles. Needs `slowPeriod + signalPeriod - 1`
+ * candles (default 34) before the first point — far less than EMA200's 200,
+ * so this fills in almost the whole visible chart even at the app's current
+ * 210-candle backfill, unlike the thin ~11-point EMA200 line.
+ */
+export function calculateMACDSeries(candles: Candle[], fastPeriod = 12, slowPeriod = 26, signalPeriod = 9): (MACDPoint | undefined)[] {
+  const closes = candles.map((c) => c.close);
+  const emaFast = emaOfValues(closes, fastPeriod);
+  const emaSlow = emaOfValues(closes, slowPeriod);
+
+  const macdRaw: (number | undefined)[] = closes.map((_, i) => {
+    const f = emaFast[i];
+    const s = emaSlow[i];
+    return f !== undefined && s !== undefined ? f - s : undefined;
+  });
+
+  // Signal = EMA(signalPeriod) of the MACD line, starting from wherever the
+  // MACD line itself first becomes defined (emaOfValues assumes a gap-free
+  // array, so slice off the leading undefined run and place results back).
+  const macdStart = macdRaw.findIndex((v) => v !== undefined);
+  const signalRaw = new Array<number | undefined>(candles.length).fill(undefined);
+  if (macdStart !== -1) {
+    const macdValues = macdRaw.slice(macdStart) as number[];
+    const signalOnSlice = emaOfValues(macdValues, signalPeriod);
+    signalOnSlice.forEach((v, i) => (signalRaw[macdStart + i] = v));
+  }
+
+  return candles.map((c, i) => {
+    const macd = macdRaw[i];
+    const signal = signalRaw[i];
+    return macd !== undefined && signal !== undefined ? { ts: c.ts, macd, signal, histogram: macd - signal } : undefined;
+  });
 }
 
 function rsiFromAvgs(avgGain: number, avgLoss: number): number {

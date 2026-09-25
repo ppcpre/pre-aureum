@@ -1,5 +1,5 @@
 import type { Candle } from "../types";
-import { calculateEMASeries, calculateRSISeries, findSwingPoints, type SwingPoint } from "./sr-engine";
+import { calculateEMASeries, calculateMACDSeries, calculateRSISeries, findSwingPoints, type SwingPoint } from "./sr-engine";
 
 export interface TrendLine {
   // Two endpoints spanning the full candle range (start ts, end ts) — enough
@@ -30,14 +30,22 @@ export interface EMACross {
   price: number; // close at the crossing candle — for a chart marker/label
 }
 
+export interface MACDCross {
+  ts: number;
+  direction: "up" | "down"; // MACD line crossing above/below its own signal line
+  histogram: number; // macd - signal at the crossing candle
+}
+
 export interface TrendAnalysis {
   rsi: { ts: number; value: number }[]; // one entry per candle that has enough history
   ema50: { ts: number; value: number }[];
   ema200: { ts: number; value: number }[];
+  macd: { ts: number; macd: number; signal: number; histogram: number }[];
   priceTrendlines: { resistance: TrendLine | null; support: TrendLine | null };
   rsiTrendlines: { resistance: TrendLine | null; support: TrendLine | null };
   rsiCrossings: RSICrossing[];
   emaCrossings: EMACross[];
+  macdCrossings: MACDCross[];
   divergences: Divergence[];
 }
 
@@ -274,6 +282,18 @@ function findEMACrossings(candles: Candle[], ema50Raw: (number | undefined)[], e
   return crossings;
 }
 
+/** MACD line crossing its own signal line — the standard MACD buy/sell trigger. */
+function findMACDCrossings(macd: { ts: number; macd: number; signal: number; histogram: number }[]): MACDCross[] {
+  const crossings: MACDCross[] = [];
+  for (let i = 1; i < macd.length; i++) {
+    const prev = macd[i - 1];
+    const cur = macd[i];
+    if (prev.macd <= prev.signal && cur.macd > cur.signal) crossings.push({ ts: cur.ts, direction: "up", histogram: cur.histogram });
+    else if (prev.macd >= prev.signal && cur.macd < cur.signal) crossings.push({ ts: cur.ts, direction: "down", histogram: cur.histogram });
+  }
+  return crossings;
+}
+
 /**
  * Composes the primitives above into everything the trend-analysis page
  * needs: an RSI series, a price trend channel (support+resistance lines),
@@ -286,10 +306,12 @@ export function computeTrendAnalysis(candles: Candle[]): TrendAnalysis {
       rsi: [],
       ema50: [],
       ema200: [],
+      macd: [],
       priceTrendlines: { resistance: null, support: null },
       rsiTrendlines: { resistance: null, support: null },
       rsiCrossings: [],
       emaCrossings: [],
+      macdCrossings: [],
       divergences: [],
     };
   }
@@ -304,6 +326,9 @@ export function computeTrendAnalysis(candles: Candle[]): TrendAnalysis {
   const ema200Raw = calculateEMASeries(candles, 200);
   const ema50 = candles.map((c, i) => ({ ts: c.ts, value: ema50Raw[i] })).filter((p): p is { ts: number; value: number } => p.value !== undefined);
   const ema200 = candles.map((c, i) => ({ ts: c.ts, value: ema200Raw[i] })).filter((p): p is { ts: number; value: number } => p.value !== undefined);
+
+  const macdRaw = calculateMACDSeries(candles);
+  const macd = macdRaw.filter((p): p is { ts: number; macd: number; signal: number; histogram: number } => p !== undefined);
 
   // lookback=3 (not sr-engine's shared default of 2) — fewer, more significant
   // swings specifically for trendline fitting: a 2-candle fractal is noisy
@@ -341,6 +366,7 @@ export function computeTrendAnalysis(candles: Candle[]): TrendAnalysis {
     rsi,
     ema50,
     ema200,
+    macd,
     priceTrendlines: {
       resistance: buildTrendLine(priceHighs, "upper", lastTs, priceClampMin, priceClampMax),
       support: buildTrendLine(priceLows, "lower", lastTs, priceClampMin, priceClampMax),
@@ -352,6 +378,7 @@ export function computeTrendAnalysis(candles: Candle[]): TrendAnalysis {
     },
     rsiCrossings: findRSICrossings(rsi),
     emaCrossings: findEMACrossings(candles, ema50Raw, ema200Raw),
+    macdCrossings: findMACDCrossings(macd),
     divergences: findDivergences(priceSwings, rsiByTs),
   };
 }

@@ -17,6 +17,7 @@
   .trend-chart-card { display: flex; flex-direction: column; }
   #trend-price-container { height: 420px; }
   #trend-rsi-container { height: 200px; margin-top: 2px; }
+  #trend-macd-container { height: 180px; margin-top: 2px; }
 
   .trend-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 10px; font-size: 12px; }
   .trend-legend-item { display: flex; align-items: center; gap: 6px; color: oklch(0.60 0.01 250); }
@@ -26,9 +27,13 @@
   .trend-legend-swatch.dotted { background: repeating-linear-gradient(90deg, oklch(0.55 0.01 250) 0 4px, transparent 4px 7px); }
   .trend-legend-swatch.ema50 { background: oklch(0.78 0.15 70); }
   .trend-legend-swatch.ema200 { background: oklch(0.68 0.13 250); }
+  .trend-legend-swatch.macd-line { background: oklch(0.75 0.14 85); }
+  .trend-legend-swatch.macd-signal { background: oklch(0.68 0.13 250); }
 
-  .rsi-header { display: flex; align-items: center; gap: 10px; margin: 18px 0 4px; }
-  .rsi-header .label { margin: 0; }
+  .rsi-header, .macd-header { display: flex; align-items: center; gap: 10px; margin: 18px 0 4px; }
+  .rsi-header .label, .macd-header .label { margin: 0; }
+  .macd-legend { display: flex; gap: 12px; margin-left: auto; font-size: 11px; }
+  .macd-legend .trend-legend-item { gap: 5px; }
 
   .crossing-card { margin-top: 16px; }
   .crossing-list { display: flex; flex-direction: column; gap: 8px; }
@@ -54,6 +59,7 @@
   @media (max-width: 900px) {
     #trend-price-container { height: 300px; }
     #trend-rsi-container { height: 160px; }
+    #trend-macd-container { height: 140px; }
   }
 </style>
 </head>
@@ -94,10 +100,19 @@
             <span class="label">RSI (14)</span>
           </div>
           <div id="trend-rsi-container"></div>
+
+          <div class="macd-header">
+            <span class="label">MACD (12, 26, 9)</span>
+            <div class="macd-legend">
+              <span class="trend-legend-item"><span class="trend-legend-swatch macd-line"></span>MACD</span>
+              <span class="trend-legend-item"><span class="trend-legend-swatch macd-signal"></span>Signal</span>
+            </div>
+          </div>
+          <div id="trend-macd-container"></div>
         </section>
 
         <section class="card crossing-card">
-          <div class="label">จุดตัด RSI=50 / EMA และสัญญาณ Divergence</div>
+          <div class="label">จุดตัด RSI=50 / EMA / MACD และสัญญาณ Divergence</div>
           <div id="divergence-list"></div>
           <div class="crossing-list" id="crossing-list">กำลังโหลด…</div>
         </section>

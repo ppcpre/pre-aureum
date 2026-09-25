@@ -18,12 +18,14 @@ const tfButtons = document.querySelectorAll("#tf-tabs button");
 const trendRefreshEl = document.getElementById("trend-refresh");
 const priceContainerEl = document.getElementById("trend-price-container");
 const rsiContainerEl = document.getElementById("trend-rsi-container");
+const macdContainerEl = document.getElementById("trend-macd-container");
 const crossingListEl = document.getElementById("crossing-list");
 const divergenceListEl = document.getElementById("divergence-list");
 
 let currentTf = "H4";
 let priceChart = null;
 let rsiChart = null;
+let macdChart = null;
 
 function pendingBadge(message) {
   return `<span class="pending-badge"><span class="dot"></span>${message}</span>`;
@@ -33,34 +35,35 @@ function fmtDate(ts) {
   return new Date(ts * 1000).toLocaleDateString("th-TH", { year: "numeric", month: "short", day: "numeric" });
 }
 
-/** Keep both charts' visible time range in lockstep so scrolling/zooming one moves the other. */
-function syncTimeScales(a, b) {
+/** Keep every chart's visible time range in lockstep so scrolling/zooming any one moves the rest (price/RSI/MACD, 3-way). */
+function syncTimeScales(charts) {
   let syncing = false;
-  a.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-    if (syncing || !range) return;
-    syncing = true;
-    b.timeScale().setVisibleLogicalRange(range);
-    syncing = false;
-  });
-  b.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-    if (syncing || !range) return;
-    syncing = true;
-    a.timeScale().setVisibleLogicalRange(range);
-    syncing = false;
+  charts.forEach((chart) => {
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (syncing || !range) return;
+      syncing = true;
+      charts.forEach((other) => {
+        if (other !== chart) other.timeScale().setVisibleLogicalRange(range);
+      });
+      syncing = false;
+    });
   });
 }
 
 function renderCharts(data) {
-  const { candles, rsi, ema50, ema200, priceTrendlines, rsiTrendlines, rsiCrossings, emaCrossings } = data;
+  const { candles, rsi, ema50, ema200, macd, priceTrendlines, rsiTrendlines, rsiCrossings, emaCrossings, macdCrossings } = data;
 
   if (priceChart) { priceChart.remove(); priceChart = null; }
   if (rsiChart) { rsiChart.remove(); rsiChart = null; }
+  if (macdChart) { macdChart.remove(); macdChart = null; }
   priceContainerEl.innerHTML = "";
   rsiContainerEl.innerHTML = "";
+  macdContainerEl.innerHTML = "";
 
   if (!candles || candles.length === 0) {
     priceContainerEl.innerHTML = pendingBadge("ยังไม่มีข้อมูลกราฟ (ข้อมูลย้อนหลังยังน้อยเกินไป)");
     rsiContainerEl.innerHTML = "";
+    macdContainerEl.innerHTML = "";
     return;
   }
 
@@ -133,6 +136,7 @@ function renderCharts(data) {
     ...commonOptions,
     width: rsiContainerEl.clientWidth,
     height: rsiContainerEl.clientHeight,
+    timeScale: { ...commonOptions.timeScale, visible: false }, // shared with the MACD chart's axis below
   });
 
   const rsiSeries = rsiChart.addLineSeries({ color: GOLD, lineWidth: 2, lastValueVisible: true, priceLineVisible: false });
@@ -158,6 +162,37 @@ function renderCharts(data) {
     );
   }
 
+  // --- MACD chart: histogram + MACD/Signal lines + zero ref + crossing markers ---
+  macdChart = LightweightCharts.createChart(macdContainerEl, {
+    ...commonOptions,
+    width: macdContainerEl.clientWidth,
+    height: macdContainerEl.clientHeight,
+  });
+
+  const macdHistSeries = macdChart.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
+  macdHistSeries.setData(
+    (macd || []).map((p) => ({ time: p.ts, value: p.histogram, color: p.histogram >= 0 ? resolveColor("oklch(0.72 0.15 150 / 0.55)") : resolveColor("oklch(0.65 0.18 25 / 0.55)") }))
+  );
+
+  const macdLineSeries = macdChart.addLineSeries({ color: GOLD, lineWidth: 1.5, lastValueVisible: false, priceLineVisible: false });
+  macdLineSeries.setData((macd || []).map((p) => ({ time: p.ts, value: p.macd })));
+
+  const macdSignalSeries = macdChart.addLineSeries({ color: EMA200_COLOR, lineWidth: 1.5, lastValueVisible: false, priceLineVisible: false });
+  macdSignalSeries.setData((macd || []).map((p) => ({ time: p.ts, value: p.signal })));
+
+  macdLineSeries.createPriceLine({ price: 0, color: MUTED, lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, axisLabelVisible: false, title: "" });
+
+  if (macdCrossings && macdCrossings.length > 0) {
+    macdLineSeries.setMarkers(
+      macdCrossings.map((cr) => ({
+        time: cr.ts,
+        position: cr.direction === "up" ? "belowBar" : "aboveBar",
+        color: cr.direction === "up" ? GREEN : RED,
+        shape: "circle",
+      }))
+    );
+  }
+
   const resizePrice = new ResizeObserver((entries) => {
     const { width, height } = entries[0].contentRect;
     if (width > 0 && height > 0) priceChart.applyOptions({ width, height });
@@ -168,19 +203,24 @@ function renderCharts(data) {
     if (width > 0 && height > 0) rsiChart.applyOptions({ width, height });
   });
   resizeRsi.observe(rsiContainerEl);
+  const resizeMacd = new ResizeObserver((entries) => {
+    const { width, height } = entries[0].contentRect;
+    if (width > 0 && height > 0) macdChart.applyOptions({ width, height });
+  });
+  resizeMacd.observe(macdContainerEl);
 
-  // Fit both charts to their full data BEFORE wiring up the live pan/zoom
-  // sync below — otherwise the RSI chart's own (narrower, shorter-series)
-  // default auto-range fires a range-change event that the sync immediately
-  // echoes back onto the price chart, clobbering its just-set full-content
-  // view down to just the last few bars (reproduced directly against
-  // production data, not a guess).
+  // Fit every chart to its full data BEFORE wiring up the live pan/zoom
+  // sync below — otherwise a shorter-series chart's own default auto-range
+  // fires a range-change event that the sync immediately echoes onto the
+  // others, clobbering their just-set full-content view down to just the
+  // last few bars (reproduced directly against production data, not a guess).
   priceChart.timeScale().fitContent();
   rsiChart.timeScale().fitContent();
-  syncTimeScales(priceChart, rsiChart);
+  macdChart.timeScale().fitContent();
+  syncTimeScales([priceChart, rsiChart, macdChart]);
 }
 
-function renderCrossings(rsiCrossings, emaCrossings) {
+function renderCrossings(rsiCrossings, emaCrossings, macdCrossings) {
   const rsiItems = (rsiCrossings || []).map((cr) => ({
     ts: cr.ts,
     bullish: cr.direction === "up",
@@ -193,10 +233,16 @@ function renderCrossings(rsiCrossings, emaCrossings) {
     note: cr.direction === "golden" ? "Golden Cross — EMA50 ตัดขึ้นเหนือ EMA200 (สัญญาณขาขึ้น)" : "Death Cross — EMA50 ตัดลงต่ำกว่า EMA200 (สัญญาณขาลง)",
     value: cr.price.toFixed(2),
   }));
-  const all = [...rsiItems, ...emaItems].sort((a, b) => b.ts - a.ts);
+  const macdItems = (macdCrossings || []).map((cr) => ({
+    ts: cr.ts,
+    bullish: cr.direction === "up",
+    note: cr.direction === "up" ? "MACD ตัดขึ้นเหนือ Signal (โมเมนตัมเป็นบวก)" : "MACD ตัดลงต่ำกว่า Signal (โมเมนตัมเป็นลบ)",
+    value: cr.histogram.toFixed(2),
+  }));
+  const all = [...rsiItems, ...emaItems, ...macdItems].sort((a, b) => b.ts - a.ts);
 
   if (all.length === 0) {
-    crossingListEl.innerHTML = pendingBadge("ยังไม่พบจุดตัด RSI=50 หรือ EMA ในช่วงข้อมูลนี้");
+    crossingListEl.innerHTML = pendingBadge("ยังไม่พบจุดตัด RSI=50 / EMA / MACD ในช่วงข้อมูลนี้");
     return;
   }
   crossingListEl.innerHTML = all
@@ -236,6 +282,7 @@ function renderDivergences(divergences) {
 async function loadTrendAnalysis(tf) {
   priceContainerEl.innerHTML = "กำลังโหลด…";
   rsiContainerEl.innerHTML = "";
+  macdContainerEl.innerHTML = "";
   crossingListEl.innerHTML = "กำลังโหลด…";
   divergenceListEl.innerHTML = "";
 
@@ -245,12 +292,13 @@ async function loadTrendAnalysis(tf) {
     if (!res.ok) throw new Error(data.message || "fetch failed");
 
     renderCharts(data);
-    renderCrossings(data.rsiCrossings, data.emaCrossings);
+    renderCrossings(data.rsiCrossings, data.emaCrossings, data.macdCrossings);
     renderDivergences(data.divergences);
   } catch (err) {
     console.error("[trend-analysis] fetch failed:", err.message);
     priceContainerEl.innerHTML = pendingBadge("โหลดข้อมูลไม่สำเร็จ ลองรีเฟรชอีกครั้ง");
     rsiContainerEl.innerHTML = "";
+    macdContainerEl.innerHTML = "";
     crossingListEl.innerHTML = "";
   }
 }
